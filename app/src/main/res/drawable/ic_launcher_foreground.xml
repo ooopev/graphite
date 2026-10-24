@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- oQuQ face: two round eyes + a calm straight-line mouth. Pure white on black. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- left eye -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M40,46 m-5,0 a5,5 0 1,1 10,0 a5,5 0 1,1 -10,0" />
+    <!-- right eye (wink-shaped Q tail) -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M68,46 m-5,0 a5,5 0 1,1 10,0 a5,5 0 1,1 -10,0" />
+    <!-- mouth -->
+    <path
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:pathData="M45,62 L63,62" />
+</vector>

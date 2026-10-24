@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">oQuQ</string>
+
+    <!-- Common -->
+    <string name="ok">OK</string>
+    <string name="cancel">Cancel</string>
+    <string name="save">Save</string>
+    <string name="delete">Delete</string>
+    <string name="edit">Edit</string>
+    <string name="share">Share</string>
+    <string name="copy">Copy</string>
+    <string name="copied">Copied</string>
+    <string name="search">Search</string>
+    <string name="close">Close</string>
+    <string name="retry">Retry</string>
+    <string name="settings">Settings</string>
+    <string name="add">Add</string>
+
+    <!-- Home / status -->
+    <string name="status_idle">Disconnected</string>
+    <string name="status_connecting">Connecting…</string>
+    <string name="status_connected">Connected</string>
+    <string name="status_disconnecting">Stopping…</string>
+    <string name="status_error">Error</string>
+    <string name="no_servers">No servers yet</string>
+    <string name="no_servers_hint">Add a server via link, subscription, QR code or manually</string>
+    <string name="servers">Servers</string>
+    <string name="select_server_first">Select a server first</string>
+    <string name="latency_ms">%d ms</string>
+    <string name="latency_testing">…</string>
+    <string name="test_all">Test all</string>
+    <string name="test">Test</string>
+    <string name="speed_format">%1$s ▲  %2$s ▼</string>
+    <string name="connected_to">Connected to %1$s</string>
+    <string name="press_to_connect">Tap to connect</string>
+
+    <!-- Add profile -->
+    <string name="add_profile">Add server</string>
+    <string name="tab_link">Link</string>
+    <string name="tab_subscription">Subscription</string>
+    <string name="tab_manual">Manual</string>
+    <string name="tab_qr">QR</string>
+    <string name="field_link">Connection link</string>
+    <string name="field_link_hint">vless://, vmess://, trojan://, ss://, hysteria2://, tuic://, wg, vpn:// (Amnezia)…</string>
+    <string name="import_n">Imported: %d</string>
+    <string name="import_fail">Could not parse the link</string>
+    <string name="qr_scan">Scan QR code</string>
+    <string name="qr_camera_permission">Camera permission is required for scanning</string>
+    <string name="field_sub_name">Name</string>
+    <string name="field_sub_url">Subscription URL</string>
+    <string name="field_name">Server name</string>
+    <string name="field_server">Address</string>
+    <string name="field_port">Port</string>
+    <string name="field_id">UUID / user</string>
+    <string name="field_password">Password</string>
+    <string name="field_sni">SNI</string>
+    <string name="field_alpn">ALPN</string>
+    <string name="field_fingerprint">uTLS fingerprint</string>
+    <string name="field_pbk">Public key (REALITY)</string>
+    <string name="field_sid">Short ID (REALITY)</string>
+    <string name="field_transport">Transport</string>
+    <string name="field_path">Path</string>
+    <string name="field_host">Host</string>
+    <string name="allow_insecure">Allow insecure</string>
+    <string name="paste_from_clipboard">Paste from clipboard</string>
+
+    <!-- Profile actions -->
+    <string name="rename">Rename</string>
+    <string name="edit_link">Edit link</string>
+    <string name="delete_profile_q">Delete this server?</string>
+
+    <!-- Settings hub -->
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_appearance_desc">Theme, language</string>
+    <string name="settings_connection">Connection</string>
+    <string name="settings_connection_desc">Engine, routing, kill switch, TUN</string>
+    <string name="settings_apps">Per-app proxy</string>
+    <string name="settings_apps_desc">Choose which apps go through VPN</string>
+    <string name="settings_subscriptions">Subscriptions</string>
+    <string name="settings_subscriptions_desc">Manage and auto-update lists</string>
+    <string name="settings_backup">Backup</string>
+    <string name="settings_backup_desc">Export and import servers</string>
+    <string name="settings_about">About</string>
+    <string name="settings_about_desc">Version, cores, licenses</string>
+
+    <!-- Appearance -->
+    <string name="theme">Theme</string>
+    <string name="theme_black">Pure black (AMOLED)</string>
+    <string name="theme_gray">Graphite</string>
+    <string name="theme_dynamic">Dynamic color (Material You)</string>
+    <string name="language">Language</string>
+    <string name="lang_system">System</string>
+    <string name="lang_en">English</string>
+    <string name="lang_ru">Русский</string>
+
+    <!-- Connection settings -->
+    <string name="proxy_mode">Proxy mode</string>
+    <string name="mode_global">Proxy everything</string>
+    <string name="mode_rule">Rule-based (bypass LAN)</string>
+    <string name="block_ads">Block ads (downloads rule lists)</string>
+    <string name="kill_switch">Kill switch</string>
+    <string name="kill_switch_hint">Enable “Always-on VPN” + “Block connections without VPN” in system settings. Leaks-proof.</string>
+    <string name="open_vpn_settings">Open system VPN settings</string>
+    <string name="tun_stack">TUN stack</string>
+    <string name="stack_mixed">Mixed (fastest)</string>
+    <string name="stack_system">System</string>
+    <string name="stack_gvisor">gVisor</string>
+    <string name="mtu">MTU</string>
+    <string name="sniffer">Traffic sniffing</string>
+    <string name="sniffer_desc">Better routing decisions, negligible cost</string>
+    <string name="urltest_url">Test URL</string>
+    <string name="socks_share">Share proxy over LAN</string>
+    <string name="socks_share_desc">SOCKS5 server other devices can use</string>
+    <string name="socks_share_port">SOCKS5 port</string>
+
+    <!-- Per-app -->
+    <string name="per_app_enable">Enable per-app proxy</string>
+    <string name="per_app_mode">Mode</string>
+    <string name="mode_include">Only selected apps use VPN</string>
+    <string name="mode_exclude">Selected apps bypass VPN</string>
+    <string name="selected_n">Selected: %d</string>
+    <string name="apps_search_hint">Search apps…</string>
+
+    <!-- Subscriptions -->
+    <string name="subs_update_now">Update now</string>
+    <string name="subs_auto_update">Auto-update</string>
+    <string name="subs_updated_never">Never updated</string>
+    <string name="subs_traffic">Traffic: %1$s / %2$s</string>
+    <string name="subs_expires">Expires: %1$s</string>
+    <string name="sub_delete_q">Delete subscription and its servers?</string>
+
+    <!-- Backup -->
+    <string name="backup_export">Export backup</string>
+    <string name="backup_import">Import backup</string>
+    <string name="backup_done">Done</string>
+
+    <!-- About -->
+    <string name="about_version">Version</string>
+    <string name="about_cores">Cores</string>
+    <string name="about_desc">Fast, minimal VPN client. Material You, black &amp; graphite.</string>
+
+    <!-- Notifications / service -->
+    <string name="notif_channel_vpn">VPN status</string>
+    <string name="notif_channel_vpn_desc">Active connection status and speed</string>
+    <string name="notif_connecting">Connecting…</string>
+    <string name="notif_stop">Stop</string>
+    <string name="tile_label">oQuQ VPN</string>
+
+    <!-- Errors -->
+    <string name="err_no_profile">No server selected</string>
+    <string name="err_vpn_permission">VPN permission denied</string>
+</resources>

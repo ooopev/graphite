@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ok">ОК</string>
+    <string name="cancel">Отмена</string>
+    <string name="save">Сохранить</string>
+    <string name="delete">Удалить</string>
+    <string name="edit">Изменить</string>
+    <string name="share">Поделиться</string>
+    <string name="copy">Копировать</string>
+    <string name="copied">Скопировано</string>
+    <string name="search">Поиск</string>
+    <string name="close">Закрыть</string>
+    <string name="retry">Повторить</string>
+    <string name="settings">Настройки</string>
+    <string name="add">Добавить</string>
+
+    <string name="status_idle">Отключено</string>
+    <string name="status_connecting">Подключение…</string>
+    <string name="status_connected">Подключено</string>
+    <string name="status_disconnecting">Остановка…</string>
+    <string name="status_error">Ошибка</string>
+    <string name="no_servers">Серверов пока нет</string>
+    <string name="no_servers_hint">Добавьте сервер по ссылке, подписке, QR-коду или вручную</string>
+    <string name="servers">Серверы</string>
+    <string name="select_server_first">Сначала выберите сервер</string>
+    <string name="latency_ms">%d мс</string>
+    <string name="latency_testing">…</string>
+    <string name="test_all">Тест всех</string>
+    <string name="test">Тест</string>
+    <string name="speed_format">%1$s ▲  %2$s ▼</string>
+    <string name="connected_to">Подключено к %1$s</string>
+    <string name="press_to_connect">Нажмите для подключения</string>
+
+    <string name="add_profile">Добавить сервер</string>
+    <string name="tab_link">Ссылка</string>
+    <string name="tab_subscription">Подписка</string>
+    <string name="tab_manual">Вручную</string>
+    <string name="tab_qr">QR</string>
+    <string name="field_link">Ссылка подключения</string>
+    <string name="field_link_hint">vless://, vmess://, trojan://, ss://, hysteria2://, tuic://, wg, vpn:// (Amnezia)…</string>
+    <string name="import_n">Импортировано: %d</string>
+    <string name="import_fail">Не удалось разобрать ссылку</string>
+    <string name="qr_scan">Сканировать QR-код</string>
+    <string name="qr_camera_permission">Для сканирования нужен доступ к камере</string>
+    <string name="field_sub_name">Название</string>
+    <string name="field_sub_url">URL подписки</string>
+    <string name="field_name">Имя сервера</string>
+    <string name="field_server">Адрес</string>
+    <string name="field_port">Порт</string>
+    <string name="field_id">UUID / пользователь</string>
+    <string name="field_password">Пароль</string>
+    <string name="field_sni">SNI</string>
+    <string name="field_alpn">ALPN</string>
+    <string name="field_fingerprint">Отпечаток uTLS</string>
+    <string name="field_pbk">Публичный ключ (REALITY)</string>
+    <string name="field_sid">Short ID (REALITY)</string>
+    <string name="field_transport">Транспорт</string>
+    <string name="field_path">Путь</string>
+    <string name="field_host">Хост</string>
+    <string name="allow_insecure">Разрешить небезопасное</string>
+    <string name="paste_from_clipboard">Вставить из буфера</string>
+
+    <string name="rename">Переименовать</string>
+    <string name="edit_link">Изменить ссылку</string>
+    <string name="delete_profile_q">Удалить этот сервер?</string>
+
+    <string name="settings_appearance">Внешний вид</string>
+    <string name="settings_appearance_desc">Тема, язык</string>
+    <string name="settings_connection">Подключение</string>
+    <string name="settings_connection_desc">Ядро, маршрутизация, kill switch, TUN</string>
+    <string name="settings_apps">Прокси по приложениям</string>
+    <string name="settings_apps_desc">Выберите, какие приложения ходят через VPN</string>
+    <string name="settings_subscriptions">Подписки</string>
+    <string name="settings_subscriptions_desc">Управление и автообновление списков</string>
+    <string name="settings_backup">Резервная копия</string>
+    <string name="settings_backup_desc">Экспорт и импорт серверов</string>
+    <string name="settings_about">О приложении</string>
+    <string name="settings_about_desc">Версия, ядра, лицензии</string>
+
+    <string name="theme">Тема</string>
+    <string name="theme_black">Чистый чёрный (AMOLED)</string>
+    <string name="theme_gray">Графит</string>
+    <string name="theme_dynamic">Динамическая (Material You)</string>
+    <string name="language">Язык</string>
+    <string name="lang_system">Системный</string>
+    <string name="lang_en">English</string>
+    <string name="lang_ru">Русский</string>
+
+    <string name="proxy_mode">Режим прокси</string>
+    <string name="mode_global">Проксировать всё</string>
+    <string name="mode_rule">По правилам (обход локальной сети)</string>
+    <string name="block_ads">Блокировать рекламу (загружает списки правил)</string>
+    <string name="kill_switch">Kill switch</string>
+    <string name="kill_switch_hint">Включите «Постоянная VPN» + «Блокировать соединения без VPN» в системных настройках. Защита от утечек.</string>
+    <string name="open_vpn_settings">Открыть настройки VPN системы</string>
+    <string name="tun_stack">Стек TUN</string>
+    <string name="stack_mixed">Смешанный (самый быстрый)</string>
+    <string name="stack_system">Системный</string>
+    <string name="stack_gvisor">gVisor</string>
+    <string name="mtu">MTU</string>
+    <string name="sniffer">Анализ трафика (sniffer)</string>
+    <string name="sniffer_desc">Точнее маршрутизация, стоимость ничтожна</string>
+    <string name="urltest_url">URL проверки</string>
+    <string name="socks_share">Открыть прокси в локальной сети</string>
+    <string name="socks_share_desc">SOCKS5-сервер для других устройств</string>
+    <string name="socks_share_port">Порт SOCKS5</string>
+
+    <string name="per_app_enable">Включить прокси по приложениям</string>
+    <string name="per_app_mode">Режим</string>
+    <string name="mode_include">Только выбранные приложения через VPN</string>
+    <string name="mode_exclude">Выбранные приложения обходят VPN</string>
+    <string name="selected_n">Выбрано: %d</string>
+    <string name="apps_search_hint">Поиск приложений…</string>
+
+    <string name="subs_update_now">Обновить сейчас</string>
+    <string name="subs_auto_update">Автообновление</string>
+    <string name="subs_updated_never">Никогда не обновлялась</string>
+    <string name="subs_traffic">Трафик: %1$s / %2$s</string>
+    <string name="subs_expires">Истекает: %1$s</string>
+    <string name="sub_delete_q">Удалить подписку и её серверы?</string>
+
+    <string name="backup_export">Экспортировать копию</string>
+    <string name="backup_import">Импортировать копию</string>
+    <string name="backup_done">Готово</string>
+
+    <string name="about_version">Версия</string>
+    <string name="about_cores">Ядра</string>
+    <string name="about_desc">Быстрый минималистичный VPN-клиент. Material You, чёрный и графит.</string>
+
+    <string name="notif_channel_vpn">Статус VPN</string>
+    <string name="notif_channel_vpn_desc">Состояние подключения и скорость</string>
+    <string name="notif_connecting">Подключение…</string>
+    <string name="notif_stop">Остановить</string>
+    <string name="tile_label">oQuQ VPN</string>
+
+    <string name="err_no_profile">Сервер не выбран</string>
+    <string name="err_vpn_permission">Доступ к VPN запрещён</string>
+</resources>

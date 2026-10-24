@@ -26,7 +26,6 @@ data class VpnState(
  * else (UI, tile, boot receiver) reads the flow and sends commands.
  */
 object VpnController {
-
     private val _state = MutableStateFlow(VpnState())
     val state: StateFlow<VpnState> = _state.asStateFlow()
 
@@ -41,10 +40,14 @@ object VpnController {
 
     // ---- commands (fire-and-forget intents; the service owns the lifecycle) ----
 
-    fun connect(context: Context, profile: Profile) {
-        val intent = Intent(context, OquqVpnService::class.java)
-            .setAction(OquqVpnService.ACTION_CONNECT)
-            .putExtra(OquqVpnService.EXTRA_PROFILE_ID, profile.id)
+    fun connect(
+        context: Context,
+        profile: Profile,
+    ) {
+        val intent =
+            Intent(context, OquqVpnService::class.java)
+                .setAction(OquqVpnService.ACTION_CONNECT)
+                .putExtra(OquqVpnService.EXTRA_PROFILE_ID, profile.id)
         context.startForegroundService(intent)
     }
 
@@ -54,7 +57,10 @@ object VpnController {
         )
     }
 
-    fun toggle(context: Context, selected: Profile?) {
+    fun toggle(
+        context: Context,
+        selected: Profile?,
+    ) {
         val s = state.value
         if (s.status == VpnStatus.CONNECTED || s.status == VpnStatus.CONNECTING) {
             disconnect(context)

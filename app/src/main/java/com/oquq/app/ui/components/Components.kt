@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -53,9 +54,10 @@ fun SwitchRow(
     onCheckedChange: (Boolean) -> Unit,
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 18.dp, vertical = 12.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 18.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
@@ -73,37 +75,52 @@ fun SwitchRow(
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = Black,
-                checkedTrackColor = Bone,
-                uncheckedThumbColor = Smoke,
-                uncheckedTrackColor = Surface04,
-                uncheckedBorderColor = Color.Transparent,
-            ),
+            colors =
+                SwitchDefaults.colors(
+                    checkedThumbColor = Black,
+                    checkedTrackColor = Bone,
+                    uncheckedThumbColor = Smoke,
+                    uncheckedTrackColor = Surface04,
+                    uncheckedBorderColor = Color.Transparent,
+                ),
         )
     }
 }
 
-/** Clickable settings row with chevron-ish affordance. */
+/** Clickable settings row with an optional leading monochrome icon. */
 @Composable
 fun ClickRow(
     title: String,
     description: String? = null,
     onClick: () -> Unit,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
 ) {
     androidx.compose.material3.Surface(
         onClick = onClick,
         color = Color.Transparent,
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Column(Modifier.padding(horizontal = 18.dp, vertical = 14.dp)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge, color = Bone)
-            if (description != null) {
-                Text(
-                    description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+        Row(
+            Modifier.padding(horizontal = 18.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (icon != null) {
+                androidx.compose.material3.Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(end = 16.dp).size(22.dp),
                 )
+            }
+            Column {
+                Text(title, style = MaterialTheme.typography.bodyLarge, color = Bone)
+                if (description != null) {
+                    Text(
+                        description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
     }
@@ -131,22 +148,26 @@ fun OquqTextField(
         trailingIcon = trailing,
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedTextColor = Bone,
-            unfocusedTextColor = Bone,
-            focusedContainerColor = Surface02,
-            unfocusedContainerColor = Surface02,
-            focusedBorderColor = Bone,
-            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-            focusedLabelColor = Bone,
-            unfocusedLabelColor = Smoke,
-            cursorColor = Bone,
-        ),
+        colors =
+            OutlinedTextFieldDefaults.colors(
+                focusedTextColor = Bone,
+                unfocusedTextColor = Bone,
+                focusedContainerColor = Surface02,
+                unfocusedContainerColor = Surface02,
+                focusedBorderColor = Bone,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                focusedLabelColor = Bone,
+                unfocusedLabelColor = Smoke,
+                cursorColor = Bone,
+            ),
     )
 }
 
 @Composable
-fun Label(text: String, modifier: Modifier = Modifier) {
+fun Label(
+    text: String,
+    modifier: Modifier = Modifier,
+) {
     Text(
         text,
         style = MaterialTheme.typography.labelMedium,

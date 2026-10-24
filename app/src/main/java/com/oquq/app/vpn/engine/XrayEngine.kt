@@ -1,41 +1,77 @@
 package com.oquq.app.vpn.engine
 
-import android.content.Context
-import io.github.xtls.libxray.LibXray
-import java.io.File
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
+import libXray.LibXray
 
 /**
- * Xray-core engine (libxray.aar, XTLS/libxray — Xray-core 26.x).
+ * Xray-core engine (libXray.aar, XTLS/libxray — Xray-core 26.x, API v3).
  *
  * Serves Xray-exclusive stream transports (XHTTP today) as a local SOCKS5
  * hop. The sing-box TUN routes into it; loopback cost is negligible next to
  * network latency.
  *
- * Only file touching LibXray bindings — pin/verify against XTLS/libxray
- * README when updating the AAR.
+ * Protocol: single JNI entry [LibXray.invoke] with JSON in/out:
+ *   request  {"apiVersion":3, "method":"runXray", "payload":{"xrayJson":"…"}}
+ *   response {"success":bool, "data":…, "error":"…"}
  */
 object XrayEngine {
+    private const val API_VERSION = 3L
+    private val json = Json { ignoreUnknownKeys = true }
 
-    @Volatile private var pid: Int = 0
+    @Volatile var running: Boolean = false
+        private set
 
-    val running: Boolean get() = pid > 0
-
-    /** Starts the Xray instance; returns false if the core rejected the config. */
-    fun start(context: Context, config: String): Boolean {
-        check(pid <= 0) { "Xray already running" }
-        val datDir = File(context.filesDir, "dat").apply { mkdirs() }
-        return runCatching {
-            pid = LibXray.runXray("oquq", datDir.absolutePath, config)
-            pid > 0
-        }.getOrDefault(false)
+    /** Starts the Xray instance; false if the core rejected the config. */
+    fun start(config: String): Boolean {
+        check(!running) { "Xray already running" }
+        val request =
+            buildJsonObject {
+                put("apiVersion", API_VERSION)
+                put("method", "runXray")
+                put("payload", buildJsonObject { put("xrayJson", config) })
+            }.toString()
+        val response = LibXray.invoke(request)
+        val ok =
+            runCatching {
+                json
+                    .parseToJsonElement(response)
+                    .jsonObject["success"]
+                    ?.jsonPrimitive
+                    ?.content == "true"
+            }.getOrDefault(false)
+        running = ok
+        return ok
     }
 
     fun stop() {
-        if (pid > 0) {
-            runCatching { LibXray.stopXray(pid) }
-            pid = 0
+        runCatching {
+            LibXray.invoke(
+                buildJsonObject {
+                    put("apiVersion", API_VERSION)
+                    put("method", "stopXray")
+                }.toString(),
+            )
         }
+        running = false
     }
 
-    fun version(): String = runCatching { LibXray.version(-1) }.getOrDefault("xray")
+    fun version(): String =
+        runCatching {
+            val response =
+                LibXray.invoke(
+                    buildJsonObject {
+                        put("apiVersion", API_VERSION)
+                        put("method", "xrayVersion")
+                    }.toString(),
+                )
+            json
+                .parseToJsonElement(response)
+                .jsonObject["data"]!!
+                .jsonObject["version"]!!
+                .jsonPrimitive.content
+        }.getOrDefault("xray")
 }

@@ -99,4 +99,8 @@ dependencies {
 
     implementation(libs.zxing.core)
     implementation(libs.zxing.embedded)
+
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.mockwebserver)
 }

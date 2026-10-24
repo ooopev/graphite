@@ -68,8 +68,9 @@ data class AppEntry(
     val isSystem: Boolean,
 )
 
-class AppsRouteViewModel(app: Application) : AndroidViewModel(app) {
-
+class AppsRouteViewModel(
+    app: Application,
+) : AndroidViewModel(app) {
     private val repo = SettingsRepository(app)
 
     val settings = repo.settings.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AppSettings())
@@ -80,39 +81,45 @@ class AppsRouteViewModel(app: Application) : AndroidViewModel(app) {
     init {
         viewModelScope.launch {
             val pm = getApplication<Application>().packageManager
-            val entries = withContext(Dispatchers.IO) {
-                val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-                pm.queryIntentActivities(launcher, 0)
-                    .asSequence()
-                    .map { it.activityInfo.applicationInfo }
-                    .distinctBy { it.packageName }
-                    .map { info ->
-                        AppEntry(
-                            packageName = info.packageName,
-                            label = info.loadLabel(pm).toString(),
-                            icon = info.loadIcon(pm),
-                            isSystem = (info.flags and ApplicationInfo.FLAG_SYSTEM) != 0,
-                        )
-                    }
-                    .sortedBy { it.label.lowercase() }
-                    .toList()
-            }
+            val entries =
+                withContext(Dispatchers.IO) {
+                    val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+                    pm
+                        .queryIntentActivities(launcher, 0)
+                        .asSequence()
+                        .map { it.activityInfo.applicationInfo }
+                        .distinctBy { it.packageName }
+                        .map { info ->
+                            AppEntry(
+                                packageName = info.packageName,
+                                label = info.loadLabel(pm).toString(),
+                                icon = info.loadIcon(pm),
+                                isSystem = (info.flags and ApplicationInfo.FLAG_SYSTEM) != 0,
+                            )
+                        }.sortedBy { it.label.lowercase() }
+                        .toList()
+                }
             apps.value = entries
             loaded.value = true
         }
     }
 
     fun setEnabled(v: Boolean) = viewModelScope.launch { repo.setPerAppEnabled(v) }
+
     fun setMode(m: PerAppMode) = viewModelScope.launch { repo.setPerAppMode(m) }
 
-    fun togglePackage(pkg: String) = viewModelScope.launch {
-        val current = repo.current().perAppPackages
-        repo.setPerAppPackages(if (pkg in current) current - pkg else current + pkg)
-    }
+    fun togglePackage(pkg: String) =
+        viewModelScope.launch {
+            val current = repo.current().perAppPackages
+            repo.setPerAppPackages(if (pkg in current) current - pkg else current + pkg)
+        }
 }
 
 @Composable
-fun AppsRouteScreen(onBack: () -> Unit, vm: AppsRouteViewModel = viewModel()) {
+fun AppsRouteScreen(
+    onBack: () -> Unit,
+    vm: AppsRouteViewModel = viewModel(),
+) {
     val settings by vm.settings.collectAsState()
     val apps by vm.apps.collectAsState()
     var query by remember { mutableStateOf("") }
@@ -150,10 +157,11 @@ fun AppsRouteScreen(onBack: () -> Unit, vm: AppsRouteViewModel = viewModel()) {
                 modifier = Modifier.padding(top = 8.dp),
             )
             LazyColumn(Modifier.weight(1f)) {
-                val visible = apps.filter {
-                    query.isBlank() || it.label.contains(query, true) ||
-                        it.packageName.contains(query, true)
-                }
+                val visible =
+                    apps.filter {
+                        query.isBlank() || it.label.contains(query, true) ||
+                            it.packageName.contains(query, true)
+                    }
                 items(visible, key = { it.packageName }) { entry ->
                     AppRow(
                         entry = entry,
@@ -167,15 +175,20 @@ fun AppsRouteScreen(onBack: () -> Unit, vm: AppsRouteViewModel = viewModel()) {
 }
 
 @Composable
-private fun AppRow(entry: AppEntry, checked: Boolean, onToggle: () -> Unit) {
+private fun AppRow(
+    entry: AppEntry,
+    checked: Boolean,
+    onToggle: () -> Unit,
+) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         shape = RoundedCornerShape(14.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp)
-            .clickable(onClick = onToggle),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp)
+                .clickable(onClick = onToggle),
     ) {
         Row(
             Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
@@ -202,11 +215,6 @@ private fun AppRow(entry: AppEntry, checked: Boolean, onToggle: () -> Unit) {
             Checkbox(
                 checked = checked,
                 onCheckedChange = { onToggle() },
-                colors = CheckboxDefaults.colors(
-                    checkColor = com.oquq.app.ui.theme.Black,
-                    checkedColor = Bone,
-                    uncheckedColor = Smoke,
-                ),
             )
         }
     }
@@ -214,14 +222,18 @@ private fun AppRow(entry: AppEntry, checked: Boolean, onToggle: () -> Unit) {
 
 /** Drawable → ImageBitmap for any icon type (incl. adaptive icons). */
 @Composable
-private fun AppIcon(drawable: Drawable, modifier: Modifier = Modifier) {
-    val bitmap = remember(drawable) {
-        val size = 96
-        val bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bmp)
-        drawable.setBounds(0, 0, size, size)
-        drawable.draw(canvas)
-        bmp.asImageBitmap()
-    }
+private fun AppIcon(
+    drawable: Drawable,
+    modifier: Modifier = Modifier,
+) {
+    val bitmap =
+        remember(drawable) {
+            val size = 96
+            val bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bmp)
+            drawable.setBounds(0, 0, size, size)
+            drawable.draw(canvas)
+            bmp.asImageBitmap()
+        }
     Image(bitmap = bitmap, contentDescription = null, modifier = modifier)
 }

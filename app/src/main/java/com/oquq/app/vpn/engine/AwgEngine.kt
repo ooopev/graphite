@@ -2,7 +2,7 @@ package com.oquq.app.vpn.engine
 
 import android.net.VpnService
 import android.os.ParcelFileDescriptor
-import go.oquqawg.Oquqawg
+import oquqawg.Oquqawg
 
 /**
  * AmneziaWG engine (libawg.aar — gomobile bind of a thin wrapper around
@@ -17,7 +17,6 @@ import go.oquqawg.Oquqawg
  * it back into the tunnel.
  */
 object AwgEngine {
-
     private var tunnelHandle = -1
 
     val running: Boolean get() = tunnelHandle >= 0
@@ -26,21 +25,27 @@ object AwgEngine {
      * @param tunFd fd from [ParcelFileDescriptor.detachFd]
      * @param settings userspace config from AwgConfigBuilder
      */
-    fun start(tunFd: Int, settings: String): Boolean {
+    fun start(
+        tunFd: Int,
+        settings: String,
+    ): Boolean {
         check(tunnelHandle < 0) { "AWG already running" }
-        tunnelHandle = Oquqawg.wgTurnOn("oQuQ", tunFd, settings)
+        tunnelHandle = Oquqawg.wgTurnOn("oQuQ", tunFd.toLong(), settings)
         return tunnelHandle >= 0
     }
 
-    /** Protect the tunnel's UDP sockets through the active VPN service. */
+    /**
+     * Protect the tunnel's UDP sockets through the active VPN service.
+     * VpnService.protect(fd) is sticky on the fd, mirroring upstream GoBackend.
+     */
     fun protectSockets(vpnService: VpnService) {
         val handle = tunnelHandle
         if (handle < 0) return
         runCatching {
             val v4 = Oquqawg.wgGetSocketV4(handle)
-            if (v4 >= 0 && vpnService.protect(v4)) Oquqawg.wgSetSocketV4(handle, v4)
+            if (v4 >= 0) vpnService.protect(v4)
             val v6 = Oquqawg.wgGetSocketV6(handle)
-            if (v6 >= 0 && vpnService.protect(v6)) Oquqawg.wgSetSocketV6(handle, v6)
+            if (v6 >= 0) vpnService.protect(v6)
         }
     }
 

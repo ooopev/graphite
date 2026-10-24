@@ -17,54 +17,77 @@ data class SubscriptionUpdate(
 
 /** Fetches and parses subscription payloads (base64 or plain link lists). */
 object SubscriptionParser {
+    private val client =
+        OkHttpClient
+            .Builder()
+            .connectTimeout(java.time.Duration.ofSeconds(15))
+            .readTimeout(java.time.Duration.ofSeconds(20))
+            .build()
 
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(java.time.Duration.ofSeconds(15))
-        .readTimeout(java.time.Duration.ofSeconds(20))
-        .build()
+    suspend fun fetch(url: String): Result<SubscriptionUpdate> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val request =
+                    Request
+                        .Builder()
+                        .url(url)
+                        .header("User-Agent", "oQuQ/1.0 (Android; VPN client)")
+                        .build()
+                client.newCall(request).execute().use { resp ->
+                    check(resp.isSuccessful) { "HTTP ${resp.code}" }
+                    val body = resp.body?.string().orEmpty()
+                    val info =
+                        resp
+                            .header("subscription-userinfo")
+                            .orEmpty()
+                            .split(';')
+                            .mapNotNull { part ->
+                                val k = part.substringBefore('=').trim()
+                                val v = part.substringAfter('=', "").trim().toLongOrNull() ?: return@mapNotNull null
+                                k to v
+                            }.toMap()
 
-    suspend fun fetch(url: String): Result<SubscriptionUpdate> = withContext(Dispatchers.IO) {
-        runCatching {
-            val request = Request.Builder()
-                .url(url)
-                .header("User-Agent", "oQuQ/1.0 (Android; VPN client)")
-                .build()
-            client.newCall(request).execute().use { resp ->
-                check(resp.isSuccessful) { "HTTP ${resp.code}" }
-                val body = resp.body?.string().orEmpty()
-                val info = resp.header("subscription-userinfo").orEmpty()
-                    .split(';').mapNotNull { part ->
-                        val k = part.substringBefore('=').trim()
-                        val v = part.substringAfter('=', "").trim().toLongOrNull() ?: return@mapNotNull null
-                        k to v
-                    }.toMap()
-
-                SubscriptionUpdate(
-                    profiles = parseBody(body),
-                    upload = info["upload"] ?: 0L,
-                    download = info["download"] ?: 0L,
-                    total = info["total"] ?: 0L,
-                    expire = info["expire"]?.takeIf { it > 0 },
-                )
+                    SubscriptionUpdate(
+                        profiles = parseBody(body),
+                        upload = info["upload"] ?: 0L,
+                        download = info["download"] ?: 0L,
+                        total = info["total"] ?: 0L,
+                        expire = info["expire"]?.takeIf { it > 0 },
+                    )
+                }
             }
         }
-    }
 
     /** Accepts base64-encoded or plain lists of links, one per line. */
     fun parseBody(body: String): List<Profile> {
         val text = body.trim()
-        val decoded = when {
-            text.startsWith("vless://", true) || text.startsWith("ss://", true) ||
-                text.startsWith("vmess://", true) || text.startsWith("trojan://", true) ||
-                text.startsWith("hysteria2://", true) || text.startsWith("hy2://", true) ||
-                text.startsWith("tuic://", true) || text.startsWith("vpn://", true) -> text
-            else -> runCatching {
-                val norm = text.replace('-', '+').replace('_', '/')
-                    .let { if (it.length % 4 == 0) it else it + "=".repeat(4 - it.length % 4) }
-                String(android.util.Base64.decode(norm, android.util.Base64.DEFAULT), Charsets.UTF_8)
-            }.getOrElse { text }
-        }
-        return decoded.lineSequence()
+        val decoded =
+            when {
+                text.startsWith("vless://", true) || text.startsWith("ss://", true) ||
+                    text.startsWith("vmess://", true) || text.startsWith("trojan://", true) ||
+                    text.startsWith("hysteria2://", true) || text.startsWith("hy2://", true) ||
+                    text.startsWith("tuic://", true) || text.startsWith("vpn://", true) -> {
+                    text
+                }
+
+                else -> {
+                    runCatching {
+                        val norm =
+                            text
+                                .replace('-', '+')
+                                .replace('_', '/')
+                                .let { if (it.length % 4 == 0) it else it + "=".repeat(4 - it.length % 4) }
+                        String(
+                            java.util.Base64
+                                .getMimeDecoder()
+                                .decode(norm),
+                            Charsets.UTF_8,
+                        )
+                    }.getOrElse { text }
+                }
+            }
+        return decoded
+            .lineSequence()
             .map { it.trim() }
             .filter { it.isNotBlank() }
             .mapNotNull { LinkParser.parse(it) }
@@ -73,7 +96,10 @@ object SubscriptionParser {
     }
 
     /** Applies a fresh fetch on top of an existing subscription row. */
-    fun applyToSubscription(sub: Subscription, update: SubscriptionUpdate): Subscription =
+    fun applyToSubscription(
+        sub: Subscription,
+        update: SubscriptionUpdate,
+    ): Subscription =
         sub.copy(
             lastUpdate = System.currentTimeMillis(),
             upload = update.upload,

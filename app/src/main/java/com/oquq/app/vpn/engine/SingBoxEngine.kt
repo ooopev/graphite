@@ -1,110 +1,186 @@
 package com.oquq.app.vpn.engine
 
+import android.content.Context
 import android.net.VpnService
-import com.oquq.app.data.AppSettings
 import com.oquq.app.data.PerAppMode
-import io.nekohasekai.libbox.BoxService
-import io.nekohasekai.libbox.BoxServiceOptions
-import io.nekohasekai.libbox.NewBoxServiceOptions
-import io.nekohasekai.libbox.NewService
-import io.nekohasekai.libbox.PlatformInterface
-import io.nekohasekai.libbox.TunOptions
+import io.nekohasekai.libbox.CommandClient
+import io.nekohasekai.libbox.CommandClientHandler
+import io.nekohasekai.libbox.CommandClientOptions
+import io.nekohasekai.libbox.CommandServer
+import io.nekohasekai.libbox.CommandServerHandler
+import io.nekohasekai.libbox.Libbox
+import io.nekohasekai.libbox.OverrideOptions
+import io.nekohasekai.libbox.SetupOptions
+import io.nekohasekai.libbox.StatusMessage
+import io.nekohasekai.libbox.StringIterator
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import java.io.File
 
 /**
- * sing-box engine (libbox.aar, sing-box 1.12+).
+ * sing-box engine (libbox.aar, sing-box 1.14 — CommandServer API).
  *
- * Owns the TUN for every protocol except AmneziaWG: libbox parses the tun
- * inbound from our config, asks [BoxPlatformService.openTun] for an fd, and
- * runs the whole box (routing, DNS, crypto) in Go threads.
+ * Owns the TUN for every protocol except AmneziaWG. Flow mirrors SFA 1.14:
  *
- * NOTE: this file is the only place that touches libbox bindings. Field and
- * method names follow the gomobile-generated API shipped in libbox.aar
- * (io.nekohasekai.libbox.*). If a libbox upgrade renames something, it is
- * fixed here and nowhere else.
+ *   Libbox.setup(SetupOptions)                    — once per process
+ *   CommandServer(handler, platform).start()
+ *   commandServer.startOrReloadService(config, OverrideOptions)
+ *     → core calls platform.openTun(TunOptions)   — we build the VPN there
+ *     → core calls platform.autoDetectInterfaceControl(fd) — we protect()
+ *
+ * Per-app routing is pushed into the core via OverrideOptions (sing-box
+ * filters by UID inside the tun; no VpnService.Builder app lists needed).
+ *
+ * Traffic stats: a CommandClient with CommandStatus pushes writeStatus()
+ * once per second; no polling loop on our side.
+ *
+ * NOTE: this file is the only place touching libbox bindings — pin/verify
+ * against experimental/libbox when upgrading the AAR.
  */
 object SingBoxEngine {
+    /** (uplink, downlink) cumulative bytes, pushed by the core each second. */
+    private val _stats = MutableStateFlow(0L to 0L)
+    val stats: StateFlow<Pair<Long, Long>> = _stats.asStateFlow()
 
-    @Volatile private var service: BoxService? = null
-    @Volatile private var platform: BoxPlatformService? = null
+    private var commandServer: CommandServer? = null
+    private var statusClient: CommandClient? = null
+    private var platform: BoxPlatformService? = null
+    private var defaultNetworkMonitor: DefaultNetworkMonitor? = null
+    private var setupDone = false
 
-    val running: Boolean get() = service != null
+    val running: Boolean get() = commandServer != null
 
-    fun start(vpnService: VpnService, config: String, settings: AppSettings) {
-        check(service == null) { "sing-box already running" }
-        val platformService = BoxPlatformService(vpnService, settings)
-        platform = platformService
-        val options = NewBoxServiceOptions().apply {
-            platformInterface = platformService
-        }
-        service = NewService(config, options).also { it.start() }
+    private fun ensureSetup(context: Context) {
+        if (setupDone) return
+        Libbox.setup(
+            SetupOptions().apply {
+                basePath = context.filesDir.path
+                workingPath = File(context.filesDir, "core").apply { mkdirs() }.path
+                tempPath = File(context.cacheDir, "core").apply { mkdirs() }.path
+            },
+        )
+        setupDone = true
+    }
+
+    /**
+     * @param perAppMode include/exclude mode when perAppPackages is not empty
+     * @throws Exception if the core rejects the config or fails to start
+     */
+    fun start(
+        context: Context,
+        vpnService: VpnService,
+        config: String,
+        perAppMode: PerAppMode?,
+        perAppPackages: Set<String>,
+    ) {
+        check(commandServer == null) { "sing-box already running" }
+        ensureSetup(context)
+
+        defaultNetworkMonitor = DefaultNetworkMonitor(context)
+        platform = BoxPlatformService(vpnService, defaultNetworkMonitor!!)
+
+        val server = CommandServer(ServerHandler(), platform!!)
+        server.start()
+        server.startOrReloadService(
+            config,
+            OverrideOptions().apply {
+                if (perAppMode != null && perAppPackages.isNotEmpty()) {
+                    when (perAppMode) {
+                        PerAppMode.INCLUDE -> {
+                            includePackage = StringIteratorImpl(perAppPackages + context.packageName)
+                        }
+
+                        PerAppMode.EXCLUDE -> {
+                            excludePackage = StringIteratorImpl(perAppPackages - context.packageName)
+                        }
+                    }
+                }
+            },
+        )
+        commandServer = server
+
+        statusClient =
+            CommandClient(
+                StatusHandler(),
+                CommandClientOptions().apply {
+                    addCommand(Libbox.CommandStatus)
+                    statusInterval = 1_000_000_000L // 1s in nanoseconds
+                },
+            ).also { it.connect() }
     }
 
     fun stop() {
-        service?.let { runCatching { it.close() } }
-        service = null
+        runCatching { statusClient?.disconnect() }
+        statusClient = null
+        runCatching { commandServer?.closeService() }
+        runCatching { commandServer?.close() }
+        commandServer = null
+        runCatching { defaultNetworkMonitor?.close() }
+        defaultNetworkMonitor = null
         platform = null
+        _stats.value = 0L to 0L
     }
 
-    /**
-     * Cumulative traffic through the tunnel, (up, down) bytes.
-     * QueryStats(direct=true) = download counter, false = upload counter.
-     */
-    fun queryStats(): Pair<Long, Long> {
-        val svc = service ?: return 0L to 0L
-        return runCatching {
-            svc.queryStats("", true) to svc.queryStats("", false)
-        }.getOrDefault(0L to 0L)
+    /** Cumulative (up, down) through the tunnel. */
+    fun queryStats(): Pair<Long, Long> = _stats.value
+
+    private class StatusHandler : CommandClientHandler {
+        override fun clearLogs() {}
+
+        override fun connected() {}
+
+        override fun disconnected(message: String?) {}
+
+        override fun initializeClashMode(
+            modes: StringIterator?,
+            current: String?,
+        ) {}
+
+        override fun setDefaultLogLevel(level: Int) {}
+
+        override fun updateClashMode(mode: String?) {}
+
+        override fun writeConnectionEvents(events: io.nekohasekai.libbox.ConnectionEvents?) {}
+
+        override fun writeGroups(groups: io.nekohasekai.libbox.OutboundGroupIterator?) {}
+
+        override fun writeLogs(logs: io.nekohasekai.libbox.LogIterator?) {}
+
+        override fun writeOutbounds(outbounds: io.nekohasekai.libbox.OutboundGroupItemIterator?) {}
+
+        override fun writeStatus(message: StatusMessage?) {
+            message ?: return
+            _stats.value = message.uplink to message.downlink
+        }
+    }
+
+    private class ServerHandler : CommandServerHandler {
+        override fun connectSSHAgent(): Int = -1
+
+        override fun getSystemProxyStatus(): io.nekohasekai.libbox.SystemProxyStatus? = null
+
+        override fun serviceReload() {}
+
+        override fun serviceStop() {}
+
+        override fun setSystemProxyEnabled(enabled: Boolean) {}
+
+        override fun triggerNativeCrash() {}
+
+        override fun writeDebugMessage(message: String?) {}
     }
 }
 
-/**
- * Callback target libbox uses to create the TUN and cache files on Android.
- * Implements the gomobile-bound [PlatformInterface].
- */
-class BoxPlatformService(
-    private val vpnService: VpnService,
-    private val settings: AppSettings,
-) : PlatformInterface {
+/** gomobile StringIterator over a collection. */
+class StringIteratorImpl(
+    private val items: Iterator<String>,
+) : StringIterator {
+    constructor(items: Iterable<String>) : this(items.iterator())
 
-    /**
-     * libbox hands us its computed TUN parameters; we map them onto a
-     * VpnService.Builder, apply per-app routing and return the fd.
-     */
-    override fun openTun(options: TunOptions?): Int {
-        val o = options ?: throw IllegalStateException("null TunOptions")
-        val builder = vpnService.Builder()
-            .setSession("oQuQ")
-            .setBlocking(true)
-            .setMtu(o.mTU.toInt())
-            .addAddress("172.19.0.1", 30) // matches SingBoxConfigBuilder tun block
-            .addAddress("fdfe:dcba:9876::1", 126)
-            .addRoute("0.0.0.0", 0)
-            .addRoute("::", 0)
-            .addDnsServer("172.19.0.1") // in-tunnel DNS; sing-box hijacks it
+    override fun hasNext(): Boolean = items.hasNext()
 
-        applyPerApp(builder)
+    override fun len(): Int = 0
 
-        return builder.establish()?.detachFd()
-            ?: throw IllegalStateException("VPN permission revoked or establish failed")
-    }
-
-    override fun writeFile(path: String?, content: ByteArray?) {
-        if (path == null || content == null) return
-        java.io.File(path).apply { parentFile?.mkdirs() }.writeBytes(content)
-    }
-
-    override fun readFile(path: String?): ByteArray = java.io.File(path ?: "").readBytes()
-
-    /** Per-app split tunneling — one of oQuQ's headline features, engine-agnostic. */
-    private fun applyPerApp(builder: VpnService.Builder) {
-        if (!settings.perAppEnabled || settings.perAppPackages.isEmpty()) return
-        runCatching {
-            when (settings.perAppMode) {
-                PerAppMode.INCLUDE ->
-                    settings.perAppPackages.forEach { builder.addAllowedApplication(it) }
-                PerAppMode.EXCLUDE ->
-                    settings.perAppPackages.forEach { builder.addDisallowedApplication(it) }
-            }
-        }
-    }
+    override fun next(): String = items.next()
 }

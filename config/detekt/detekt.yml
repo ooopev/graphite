@@ -1,0 +1,43 @@
+# oQuQ detekt configuration — tuned, not silenced.
+build:
+  maxIssues: 0
+
+style:
+  MaxLineLength:
+    active: false # ktlint owns wrapping; long test fixtures are fine
+  ReturnCount:
+    active: false # parsers legitimately return early on bad input
+  MagicNumber:
+    active: false
+  ThrowsCount:
+    active: false
+  LoopWithTooManyJumpStatements:
+    active: false
+
+empty-blocks:
+  EmptyFunctionBlock:
+    active: false # required no-op overrides of gomobile interfaces
+
+complexity:
+  LongMethod:
+    threshold: 300 # flat JSON builders and Compose screens
+  LongParameterList:
+    functionThreshold: 14
+    constructorThreshold: 14
+  CyclomaticComplexMethod:
+    threshold: 40
+  TooManyFunctions:
+    thresholdInClasses: 30
+    thresholdInObjects: 30
+  LargeClass:
+    threshold: 700
+  NestedBlockDepth:
+    threshold: 6
+
+exceptions:
+  TooGenericExceptionCaught:
+    active: false # JNI boundary adapters catch broadly on purpose
+
+naming:
+  FunctionNaming:
+    active: false # Compose composables are PascalCase

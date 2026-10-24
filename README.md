@@ -54,16 +54,30 @@ Rust-ядро подключается позже без переписыван�
 ## Сборка
 
 ```bash
-# 1. Ядра (один раз и после апгрейдов версий)
+# 1. Ядра (один раз и после апгрейдов версий; Go 1.24+, NDK r28, JDK 17)
 scripts/fetch_cores.sh            # libbox.aar + libxray.aar + libawg.aar → app/libs/
 
-# 2. Приложение (Android Studio Ladybug+ или Gradle 8.14+)
-gradle assembleRelease            # или откры́ть проект в Studio и Run
+# 2. Приложение (JDK 21, Android SDK 36)
+./gradlew assembleRelease
 ```
 
-Gradle wrapper не положен в репозиторий — сгенерируйте: `gradle wrapper --gradle-version 8.14.3`.
+Проверенный стек: Gradle 9.5.1 (wrapper включён) · AGP 8.13.2 · Kotlin 2.2.21 · KSP 2.2.21-2.0.5 · Compose BOM 2025.06.01.
 
-Требования: JDK 17, Android SDK 36, для libawg — Go 1.22+ и Android NDK.
+Важно про ядра (проверено на практике):
+- **libbox** собирается ТОЛЬКО через внутренний билдер sing-box (`cmd/internal/build_libbox`,
+  sagernet/gomobile v0.1.13, теги `with_quic,with_wireguard,with_utls,with_gvisor,with_clash_api`,
+  JDK 17 для упаковки aar) — голый `gomobile bind` падает на линкере и теряет протоколы
+- **libxray** — официальный zip из релизов XTLS/libxray, JSON-invoke API v3 (`LibXray.invoke`)
+- **libawg** — наш gomobile-врапер `scripts/awgbind` поверх `amneziawg-go/v3` (класс `oquqawg.Oquqawg`)
+
+## Тесты и линтеры
+
+```bash
+./gradlew testDebugUnitTest                              # 54 юнит-теста (парсеры, билдеры, бэкап, подписки)
+java -jar ~/tools/ktlint 'app/src/**/*.kt'               # 0 нарушений (.editorconfig в репе)
+java -jar ~/tools/detekt-cli.jar -i app/src/main/java,app/src/test/java \
+     -c config/detekt/detekt.yml                         # 0 замечаний (конфиг в репе)
+```
 
 ## Точки интеграции (важно при апгрейде ядер)
 

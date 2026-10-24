@@ -11,7 +11,6 @@ import com.oquq.app.MainActivity
 import com.oquq.app.R
 
 object Notifications {
-
     const val CHANNEL_VPN = "vpn_status"
     const val ID_VPN = 1
 
@@ -29,19 +28,29 @@ object Notifications {
         )
     }
 
-    fun vpnNotification(context: Context, title: String, speedLine: String?): Notification {
+    fun vpnNotification(
+        context: Context,
+        title: String,
+        speedLine: String?,
+    ): Notification {
         ensureChannels(context)
         val content = Intent(context, MainActivity::class.java)
-        val contentPi = PendingIntent.getActivity(
-            context, 0, content,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-        val stopPi = PendingIntent.getService(
-            context, 1,
-            Intent(context, OquqVpnService::class.java).setAction(OquqVpnService.ACTION_DISCONNECT),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-        return NotificationCompat.Builder(context, CHANNEL_VPN)
+        val contentPi =
+            PendingIntent.getActivity(
+                context,
+                0,
+                content,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+        val stopPi =
+            PendingIntent.getService(
+                context,
+                1,
+                Intent(context, OquqVpnService::class.java).setAction(OquqVpnService.ACTION_DISCONNECT),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+        return NotificationCompat
+            .Builder(context, CHANNEL_VPN)
             .setSmallIcon(R.drawable.ic_stat_vpn)
             .setContentTitle(title)
             .setContentText(speedLine ?: "")

@@ -13,6 +13,7 @@ import com.oquq.app.core.config.XrayConfigBuilder
 import com.oquq.app.core.model.Profile
 import com.oquq.app.core.model.ProfileParams
 import com.oquq.app.core.model.Protocol
+import com.oquq.app.core.model.effectiveEngine
 import com.oquq.app.core.parser.LinkParser
 import com.oquq.app.core.repo.ProfileRepository
 import com.oquq.app.data.AppSettings
@@ -39,7 +40,6 @@ import kotlinx.coroutines.launch
  *   AWG      — AmneziaWG userspace core owns the TUN fd itself.
  */
 class OquqVpnService : VpnService() {
-
     companion object {
         const val ACTION_CONNECT = "com.oquq.app.action.CONNECT"
         const val ACTION_DISCONNECT = "com.oquq.app.action.DISCONNECT"
@@ -50,7 +50,11 @@ class OquqVpnService : VpnService() {
     private var statsJob: Job? = null
     private var tunnelFd: ParcelFileDescriptor? = null
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int,
+    ): Int {
         val appContext = applicationContext
         startAsForeground(appContext)
         when (intent?.action) {
@@ -58,13 +62,20 @@ class OquqVpnService : VpnService() {
                 val profileId = intent.getLongExtra(EXTRA_PROFILE_ID, -1L)
                 scope.launch { connectTo(profileId) }
             }
-            ACTION_DISCONNECT -> scope.launch { shutdown() }
+
+            ACTION_DISCONNECT -> {
+                scope.launch { shutdown() }
+            }
+
             else -> {
                 // No action = the system (re)started us — always-on VPN path.
                 scope.launch {
                     val selected = SettingsRepository(appContext).current().selectedProfileId
-                    if (selected > 0) connectTo(selected)
-                    else shutdown()
+                    if (selected > 0) {
+                        connectTo(selected)
+                    } else {
+                        shutdown()
+                    }
                 }
             }
         }
@@ -83,8 +94,12 @@ class OquqVpnService : VpnService() {
             shutdownEngines()
         }
 
-        val profile = if (profileId > 0) repo.profileOnce(profileId)
-        else repo.profileOnce(settings.selectedProfileId)
+        val profile =
+            if (profileId > 0) {
+                repo.profileOnce(profileId)
+            } else {
+                repo.profileOnce(settings.selectedProfileId)
+            }
 
         if (profile == null) {
             VpnController.update { it.copy(status = VpnStatus.IDLE, error = null) }
@@ -105,27 +120,33 @@ class OquqVpnService : VpnService() {
         }
         updateNotification()
 
-        val connected = runCatching {
-            when (engine) {
-                Protocol.Engine.SING_BOX -> {
-                    SingBoxEngine.start(this, SingBoxConfigBuilder.build(profile, settings), settings)
-                    true
+        val connected =
+            runCatching {
+                when (engine) {
+                    Protocol.Engine.SING_BOX -> {
+                        startSingBox(profile, settings)
+                        true
+                    }
+
+                    Protocol.Engine.XRAY -> {
+                        // Xray serves the protocol; sing-box still owns the TUN and chains to it.
+                        if (!XrayEngine.start(XrayConfigBuilder.build(profile))) {
+                            error("Xray core rejected the config")
+                        }
+                        startSingBox(profile, settings)
+                        true
+                    }
+
+                    Protocol.Engine.AWG -> {
+                        connectAwg(profile, params, settings)
+                    }
                 }
-                Protocol.Engine.XRAY -> {
-                    // Xray serves the protocol; sing-box still owns the TUN and chains to it.
-                    if (!XrayEngine.start(this, XrayConfigBuilder.build(profile)))
-                        error("Xray core rejected the config")
-                    SingBoxEngine.start(this, SingBoxConfigBuilder.build(profile, settings), settings)
-                    true
-                }
-                Protocol.Engine.AWG -> connectAwg(profile, params, settings)
+            }.getOrElse { e ->
+                VpnController.update { it.copy(status = VpnStatus.IDLE, error = e.message) }
+                shutdownEngines()
+                stopCleanly()
+                return
             }
-        }.getOrElse { e ->
-            VpnController.update { it.copy(status = VpnStatus.IDLE, error = e.message) }
-            shutdownEngines()
-            stopCleanly()
-            return
-        }
 
         if (!connected) {
             VpnController.update { it.copy(status = VpnStatus.IDLE, error = "engine failed to start") }
@@ -138,13 +159,31 @@ class OquqVpnService : VpnService() {
         startStatsLoop(engine)
     }
 
-    private fun connectAwg(profile: Profile, params: ProfileParams, settings: AppSettings): Boolean {
-        val builder = Builder()
-            .setSession("oQuQ")
-            .setBlocking(true)
-            .setMtu(params.wgMtu ?: 1420)
-            .addRoute("0.0.0.0", 0)
-            .addRoute("::", 0)
+    private fun startSingBox(
+        profile: Profile,
+        settings: AppSettings,
+    ) {
+        SingBoxEngine.start(
+            context = this,
+            vpnService = this,
+            config = SingBoxConfigBuilder.build(profile, settings),
+            perAppMode = if (settings.perAppEnabled) settings.perAppMode else null,
+            perAppPackages = settings.perAppPackages,
+        )
+    }
+
+    private fun connectAwg(
+        profile: Profile,
+        params: ProfileParams,
+        settings: AppSettings,
+    ): Boolean {
+        val builder =
+            Builder()
+                .setSession("oQuQ")
+                .setBlocking(true)
+                .setMtu(params.wgMtu ?: 1420)
+                .addRoute("0.0.0.0", 0)
+                .addRoute("::", 0)
         (params.wgAddresses.ifEmpty { listOf("172.16.0.2/32") }).forEach { cidr ->
             val addr = cidr.substringBefore('/')
             val prefix = cidr.substringAfter('/').toIntOrNull() ?: return@forEach
@@ -154,10 +193,13 @@ class OquqVpnService : VpnService() {
         if (settings.perAppEnabled && settings.perAppPackages.isNotEmpty()) {
             runCatching {
                 when (settings.perAppMode) {
-                    PerAppMode.INCLUDE ->
+                    PerAppMode.INCLUDE -> {
                         settings.perAppPackages.forEach { builder.addAllowedApplication(it) }
-                    PerAppMode.EXCLUDE ->
+                    }
+
+                    PerAppMode.EXCLUDE -> {
                         settings.perAppPackages.forEach { builder.addDisallowedApplication(it) }
+                    }
                 }
             }
         }
@@ -181,19 +223,25 @@ class OquqVpnService : VpnService() {
         val uid = android.os.Process.myUid()
         val baseRx = TrafficStats.getUidRxBytes(uid)
         val baseTx = TrafficStats.getUidTxBytes(uid)
-        statsJob = scope.launch {
-            while (isActive) {
-                val (up, down) = when (engine) {
-                    Protocol.Engine.AWG ->
-                        (TrafficStats.getUidTxBytes(uid) - baseTx) to
-                            (TrafficStats.getUidRxBytes(uid) - baseRx)
-                    else -> SingBoxEngine.queryStats()
+        statsJob =
+            scope.launch {
+                while (isActive) {
+                    val (up, down) =
+                        when (engine) {
+                            Protocol.Engine.AWG -> {
+                                (TrafficStats.getUidTxBytes(uid) - baseTx) to
+                                    (TrafficStats.getUidRxBytes(uid) - baseRx)
+                            }
+
+                            else -> {
+                                SingBoxEngine.queryStats()
+                            }
+                        }
+                    VpnController.update { it.copy(upBytes = up, downBytes = down) }
+                    updateNotification(speedLine = formatBytes(down) + " ▼  " + formatBytes(up) + " ▲")
+                    delay(1000)
                 }
-                VpnController.update { it.copy(upBytes = up, downBytes = down) }
-                updateNotification(speedLine = formatBytes(down) + " ▼  " + formatBytes(up) + " ▲")
-                delay(1000)
             }
-        }
     }
 
     // ------------------------------------------------------------------ shutdown
@@ -206,7 +254,8 @@ class OquqVpnService : VpnService() {
     }
 
     private fun shutdownEngines() {
-        statsJob?.cancel(); statsJob = null
+        statsJob?.cancel()
+        statsJob = null
         runCatching { XrayEngine.stop() }
         runCatching { SingBoxEngine.stop() }
         runCatching { AwgEngine.stop() }
@@ -234,26 +283,38 @@ class OquqVpnService : VpnService() {
 
     private fun startAsForeground(context: android.content.Context) {
         Notifications.ensureChannels(context)
-        val title = when (VpnController.state.value.status) {
-            VpnStatus.CONNECTED -> context.getString(
-                R.string.connected_to, VpnController.state.value.profileName ?: "VPN",
-            )
-            else -> context.getString(R.string.notif_connecting)
-        }
+        val title =
+            when (VpnController.state.value.status) {
+                VpnStatus.CONNECTED -> {
+                    context.getString(
+                        R.string.connected_to,
+                        VpnController.state.value.profileName ?: "VPN",
+                    )
+                }
+
+                else -> {
+                    context.getString(R.string.notif_connecting)
+                }
+            }
         val notification = Notifications.vpnNotification(context, title, null)
-        val type = if (Build.VERSION.SDK_INT >= 34)
-            android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE else 0
+        val type =
+            if (Build.VERSION.SDK_INT >= 34) {
+                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            } else {
+                0
+            }
         ServiceCompat.startForeground(this, Notifications.ID_VPN, notification, type)
     }
 
     private fun updateNotification(speedLine: String? = null) {
         val nm = getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager
         val s = VpnController.state.value
-        val title = when (s.status) {
-            VpnStatus.CONNECTED -> getString(R.string.connected_to, s.profileName ?: "VPN")
-            VpnStatus.CONNECTING -> getString(R.string.notif_connecting)
-            else -> getString(R.string.app_name)
-        }
+        val title =
+            when (s.status) {
+                VpnStatus.CONNECTED -> getString(R.string.connected_to, s.profileName ?: "VPN")
+                VpnStatus.CONNECTING -> getString(R.string.notif_connecting)
+                else -> getString(R.string.app_name)
+            }
         nm.notify(Notifications.ID_VPN, Notifications.vpnNotification(this, title, speedLine))
     }
 }

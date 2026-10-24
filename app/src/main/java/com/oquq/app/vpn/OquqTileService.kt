@@ -12,7 +12,6 @@ import kotlinx.coroutines.runBlocking
  * Reflects [VpnController.state] — no separate state machinery.
  */
 class OquqTileService : TileService() {
-
     override fun onStartListening() {
         syncTile()
     }
@@ -23,12 +22,13 @@ class OquqTileService : TileService() {
             VpnController.disconnect(this)
         } else {
             // Selected profile (or the most recently added) — tile has no UI to pick.
-            val selected = runBlocking {
-                val settings = SettingsRepository(applicationContext).current()
-                val repo = ProfileRepository.get(applicationContext)
-                repo.profileOnce(settings.selectedProfileId)
-                    ?: repo.profiles().first().firstOrNull()
-            }
+            val selected =
+                runBlocking {
+                    val settings = SettingsRepository(applicationContext).current()
+                    val repo = ProfileRepository.get(applicationContext)
+                    repo.profileOnce(settings.selectedProfileId)
+                        ?: repo.profiles().first().firstOrNull()
+                }
             if (selected != null) VpnController.connect(this, selected)
         }
         syncTile()
@@ -40,7 +40,10 @@ class OquqTileService : TileService() {
             VpnStatus.CONNECTED, VpnStatus.CONNECTING -> {
                 tile.state = Tile.STATE_ACTIVE
             }
-            else -> tile.state = Tile.STATE_INACTIVE
+
+            else -> {
+                tile.state = Tile.STATE_INACTIVE
+            }
         }
         tile.updateTile()
     }

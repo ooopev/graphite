@@ -18,16 +18,20 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-class HomeViewModel(app: Application) : AndroidViewModel(app) {
-
+class HomeViewModel(
+    app: Application,
+) : AndroidViewModel(app) {
     private val repo = ProfileRepository.get(app)
     private val settingsRepo = SettingsRepository(app)
 
-    val profiles: StateFlow<List<Profile>> = repo.profiles()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val profiles: StateFlow<List<Profile>> =
+        repo
+            .profiles()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val settings: StateFlow<AppSettings> = settingsRepo.settings
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AppSettings())
+    val settings: StateFlow<AppSettings> =
+        settingsRepo.settings
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AppSettings())
 
     val vpnState: StateFlow<VpnState> = VpnController.state
 
@@ -82,12 +86,21 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { repo.delete(profile) }
     }
 
-    fun rename(profile: Profile, name: String) {
+    fun rename(
+        profile: Profile,
+        name: String,
+    ) {
         viewModelScope.launch { repo.update(profile.copy(name = name.ifBlank { profile.name })) }
     }
 
-    fun replaceLink(profile: Profile, newLink: String, onSuccess: () -> Unit = {}) {
-        val parsed = com.oquq.app.core.parser.LinkParser.parse(newLink) ?: return
+    fun replaceLink(
+        profile: Profile,
+        newLink: String,
+        onSuccess: () -> Unit = {},
+    ) {
+        val parsed =
+            com.oquq.app.core.parser.LinkParser
+                .parse(newLink) ?: return
         viewModelScope.launch {
             repo.update(parsed.copy(id = profile.id, name = parsed.name.ifBlank { profile.name }))
             onSuccess()

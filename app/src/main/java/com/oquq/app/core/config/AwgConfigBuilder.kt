@@ -1,6 +1,5 @@
 package com.oquq.app.core.config
 
-import android.util.Base64
 import com.oquq.app.core.model.Profile
 import com.oquq.app.core.model.ProfileParams
 import com.oquq.app.core.parser.LinkParser
@@ -14,7 +13,6 @@ import com.oquq.app.core.parser.LinkParser
  * after the standard block; the amnezia-wg Go core understands both forms.
  */
 object AwgConfigBuilder {
-
     fun build(profile: Profile): String {
         val p = LinkParser.paramsFromJson(profile.params)
         return buildString {
@@ -43,9 +41,15 @@ object AwgConfigBuilder {
     }
 
     /** base64 (standard or url-safe) WireGuard key → lowercase hex. */
-    private fun String.toHexOrNull(): String? = runCatching {
-        val normalized = replace('-', '+').replace('_', '/')
-            .let { if (it.length % 4 == 0) it else it + "=".repeat(4 - it.length % 4) }
-        Base64.decode(normalized, Base64.DEFAULT).joinToString("") { "%02x".format(it) }
-    }.getOrNull()
+    private fun String.toHexOrNull(): String? =
+        runCatching {
+            val normalized =
+                replace('-', '+')
+                    .replace('_', '/')
+                    .let { if (it.length % 4 == 0) it else it + "=".repeat(4 - it.length % 4) }
+            java.util.Base64
+                .getMimeDecoder()
+                .decode(normalized)
+                .joinToString("") { "%02x".format(it) }
+        }.getOrNull()
 }

@@ -39,30 +39,35 @@ import com.oquq.app.ui.theme.ErrorMuted
 import com.oquq.app.ui.theme.Smoke
 import com.oquq.app.ui.util.formatBytes
 import com.oquq.app.ui.util.formatEpochSeconds
-import java.text.DateFormat
-import java.util.Date
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.text.DateFormat
+import java.util.Date
 
-class SubscriptionsViewModel(app: Application) : AndroidViewModel(app) {
-
+class SubscriptionsViewModel(
+    app: Application,
+) : AndroidViewModel(app) {
     private val repo = ProfileRepository.get(app)
     private val settingsRepo = SettingsRepository(app)
 
-    val settings = settingsRepo.settings
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AppSettings())
+    val settings =
+        settingsRepo.settings
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AppSettings())
 
-    val subscriptions = repo.subscriptions()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val subscriptions =
+        repo
+            .subscriptions()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val updating = MutableStateFlow<Set<Long>>(emptySet())
 
     fun updateNow(sub: Subscription) {
         updating.value = updating.value + sub.id
         viewModelScope.launch {
-            SubscriptionParser.fetch(sub.url)
+            SubscriptionParser
+                .fetch(sub.url)
                 .onSuccess { update ->
                     repo.updateSubscription(SubscriptionParser.applyToSubscription(sub, update))
                     repo.replaceSubscriptionProfiles(sub.id, update.profiles)
@@ -75,11 +80,17 @@ class SubscriptionsViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { repo.deleteSubscriptionCascade(sub) }
     }
 
-    fun setAuto(sub: Subscription, auto: Boolean) {
+    fun setAuto(
+        sub: Subscription,
+        auto: Boolean,
+    ) {
         viewModelScope.launch { repo.updateSubscription(sub.copy(autoUpdate = auto)) }
     }
 
-    fun setGlobalAuto(enabled: Boolean, hours: Int) {
+    fun setGlobalAuto(
+        enabled: Boolean,
+        hours: Int,
+    ) {
         viewModelScope.launch {
             settingsRepo.setSubsAutoUpdate(enabled)
             SubscriptionUpdateWorker.schedule(getApplication(), enabled, hours)
@@ -134,7 +145,10 @@ fun SubscriptionsScreen(
             title = { Text(stringResource(R.string.sub_delete_q)) },
             text = { Text(sub.name) },
             confirmButton = {
-                TextButton(onClick = { vm.delete(sub); deleteTarget = null }) {
+                TextButton(onClick = {
+                    vm.delete(sub)
+                    deleteTarget = null
+                }) {
                     Text(stringResource(R.string.delete), color = ErrorMuted)
                 }
             },
@@ -202,8 +216,11 @@ private fun SubscriptionCard(
             Row {
                 TextButton(onClick = onUpdate, enabled = !isUpdating) {
                     Text(
-                        if (isUpdating) stringResource(R.string.status_connecting)
-                        else stringResource(R.string.subs_update_now),
+                        if (isUpdating) {
+                            stringResource(R.string.status_connecting)
+                        } else {
+                            stringResource(R.string.subs_update_now)
+                        },
                         color = Bone,
                     )
                 }

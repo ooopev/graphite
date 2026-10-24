@@ -1,6 +1,7 @@
 package com.oquq.app.ui.settings
 
 import android.app.Application
+import android.content.Intent
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -11,11 +12,19 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Apps
+import androidx.compose.material.icons.outlined.Archive
+import androidx.compose.material.icons.outlined.Bolt
+import androidx.compose.material.icons.outlined.CloudSync
+import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Restore
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -41,8 +50,8 @@ import com.oquq.app.BuildConfig
 import com.oquq.app.R
 import com.oquq.app.core.repo.BackupManager
 import com.oquq.app.core.repo.ProfileRepository
-import com.oquq.app.data.AppSettings
 import com.oquq.app.data.AppLanguage
+import com.oquq.app.data.AppSettings
 import com.oquq.app.data.ProxyMode
 import com.oquq.app.data.SettingsRepository
 import com.oquq.app.data.SubscriptionUpdateWorker
@@ -60,7 +69,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-class SettingsViewModel(app: Application) : AndroidViewModel(app) {
+class SettingsViewModel(
+    app: Application,
+) : AndroidViewModel(app) {
     val repo = SettingsRepository(app)
     private val profileRepo = ProfileRepository.get(app)
 
@@ -70,7 +81,10 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { transform(repo) }
     }
 
-    fun applySubsWork(enabled: Boolean, hours: Int) {
+    fun applySubsWork(
+        enabled: Boolean,
+        hours: Int,
+    ) {
         SubscriptionUpdateWorker.schedule(getApplication(), enabled, hours)
     }
 
@@ -110,24 +124,28 @@ fun SettingsScreen(
                 stringResource(R.string.settings_connection),
                 stringResource(R.string.settings_connection_desc),
                 onClick = onOpenConnection,
+                icon = Icons.Outlined.Bolt,
             )
             DividerRow()
             ClickRow(
                 stringResource(R.string.settings_apps),
                 stringResource(R.string.settings_apps_desc),
                 onClick = onOpenApps,
+                icon = Icons.Outlined.Apps,
             )
             DividerRow()
             ClickRow(
                 stringResource(R.string.settings_subscriptions),
                 stringResource(R.string.settings_subscriptions_desc),
                 onClick = onOpenSubscriptions,
+                icon = Icons.Outlined.CloudSync,
             )
             DividerRow()
             ClickRow(
                 stringResource(R.string.settings_appearance),
                 stringResource(R.string.settings_appearance_desc),
                 onClick = onOpenAppearance,
+                icon = Icons.Outlined.DarkMode,
             )
             DividerRow()
             BackupSection(vm)
@@ -136,6 +154,7 @@ fun SettingsScreen(
                 stringResource(R.string.settings_about),
                 stringResource(R.string.settings_about_desc),
                 onClick = onOpenAbout,
+                icon = Icons.Outlined.Info,
             )
         }
     }
@@ -146,42 +165,55 @@ private fun BackupSection(vm: SettingsViewModel) {
     val context = LocalContext.current
     var importResult by remember { mutableStateOf<Int?>(null) }
 
-    val exportLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("application/json"),
-    ) { uri ->
-        uri?.let { u ->
-            vm.exportBackup { json ->
-                context.contentResolver.openOutputStream(u)?.use { os ->
-                    os.write(json.toByteArray())
+    val exportLauncher =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.CreateDocument("application/json"),
+        ) { uri ->
+            uri?.let { u ->
+                vm.exportBackup { json ->
+                    context.contentResolver.openOutputStream(u)?.use { os ->
+                        os.write(json.toByteArray())
+                    }
                 }
             }
         }
-    }
-    val importLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument(),
-    ) { uri ->
-        uri?.let { u ->
-            val text = context.contentResolver.openInputStream(u)?.bufferedReader()?.readText()
-            text?.let { importResult = vm.importBackup(it) }
+    val importLauncher =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.OpenDocument(),
+        ) { uri ->
+            uri?.let { u ->
+                val text =
+                    context.contentResolver
+                        .openInputStream(u)
+                        ?.bufferedReader()
+                        ?.readText()
+                text?.let { importResult = vm.importBackup(it) }
+            }
         }
-    }
 
     Column {
         ClickRow(
             stringResource(R.string.backup_export),
             stringResource(R.string.settings_backup_desc),
             onClick = { exportLauncher.launch("oquq-backup.json") },
+            icon = Icons.Outlined.Archive,
         )
-        ClickRow(stringResource(R.string.backup_import), null, onClick = {
-            importLauncher.launch(arrayOf("application/json"))
-        })
+        ClickRow(
+            stringResource(R.string.backup_import),
+            null,
+            onClick = { importLauncher.launch(arrayOf("application/json")) },
+            icon = Icons.Outlined.Restore,
+        )
     }
 }
 
 // ---------------------------------------------------------------- appearance
 
 @Composable
-fun AppearanceSettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = viewModel()) {
+fun AppearanceSettingsScreen(
+    onBack: () -> Unit,
+    vm: SettingsViewModel = viewModel(),
+) {
     val settings by vm.settings.collectAsState()
     val context = LocalContext.current
 
@@ -220,7 +252,10 @@ fun AppearanceSettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = viewMod
 // ---------------------------------------------------------------- connection
 
 @Composable
-fun ConnectionSettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = viewModel()) {
+fun ConnectionSettingsScreen(
+    onBack: () -> Unit,
+    vm: SettingsViewModel = viewModel(),
+) {
     val settings by vm.settings.collectAsState()
     val context = LocalContext.current
     var stackDialog by remember { mutableStateOf(false) }
@@ -258,7 +293,9 @@ fun ConnectionSettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = viewMod
             )
             OquqTextField(
                 value = mtu,
-                onValueChange = { v -> mtu = v.filter { it.isDigit() }.take(5); },
+                onValueChange = { v ->
+                    mtu = v.filter { it.isDigit() }.take(5)
+                },
                 label = stringResource(R.string.mtu),
                 modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
             )
@@ -277,7 +314,7 @@ fun ConnectionSettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = viewMod
             ClickRow(
                 stringResource(R.string.kill_switch),
                 stringResource(R.string.kill_switch_hint),
-                onClick = { context.startActivity(Settings.ACTION_VPN_SETTINGS) },
+                onClick = { context.startActivity(Intent(Settings.ACTION_VPN_SETTINGS)) },
             )
         }
 
@@ -321,11 +358,12 @@ fun ConnectionSettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = viewMod
     if (stackDialog) {
         SelectDialog(
             title = stringResource(R.string.tun_stack),
-            options = listOf(
-                stringResource(R.string.stack_mixed) to TunStack.MIXED,
-                stringResource(R.string.stack_system) to TunStack.SYSTEM,
-                stringResource(R.string.stack_gvisor) to TunStack.GVISOR,
-            ),
+            options =
+                listOf(
+                    stringResource(R.string.stack_mixed) to TunStack.MIXED,
+                    stringResource(R.string.stack_system) to TunStack.SYSTEM,
+                    stringResource(R.string.stack_gvisor) to TunStack.GVISOR,
+                ),
             selected = settings.tunStack,
             onDismiss = { stackDialog = false },
         ) { chosen -> vm.set { s -> s.setTunStack(chosen) } }
@@ -333,10 +371,11 @@ fun ConnectionSettingsScreen(onBack: () -> Unit, vm: SettingsViewModel = viewMod
     if (modeDialog) {
         SelectDialog(
             title = stringResource(R.string.proxy_mode),
-            options = listOf(
-                stringResource(R.string.mode_rule) to ProxyMode.RULE,
-                stringResource(R.string.mode_global) to ProxyMode.GLOBAL,
-            ),
+            options =
+                listOf(
+                    stringResource(R.string.mode_rule) to ProxyMode.RULE,
+                    stringResource(R.string.mode_global) to ProxyMode.GLOBAL,
+                ),
             selected = settings.proxyMode,
             onDismiss = { modeDialog = false },
         ) { chosen -> vm.set { s -> s.setProxyMode(chosen) } }
@@ -350,7 +389,7 @@ fun SettingsScaffold(
     title: String,
     onBack: () -> Unit,
     scroll: Boolean = true,
-    content: @Composable () -> Unit,
+    content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit,
 ) {
     Column(
         Modifier
@@ -396,7 +435,11 @@ fun DividerRow() {
 }
 
 @Composable
-fun RadioRow(text: String, selected: Boolean, onClick: () -> Unit) {
+fun RadioRow(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
     Row(
         Modifier
             .fillMaxWidth()

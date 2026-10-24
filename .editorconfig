@@ -1,0 +1,13 @@
+root = true
+
+[*.{kt,kts}]
+charset = utf-8
+end_of_line = lf
+indent_size = 4
+indent_style = space
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Compose composables are PascalCase by convention; rule disabled project-wide.
+ktlint_standard_function-naming = disabled
+ktlint_standard_max-line-length = disabled

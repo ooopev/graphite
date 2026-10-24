@@ -19,6 +19,7 @@ fun formatSpeed(bytesPerSecond: Long): String = formatBytes(bytesPerSecond) + "/
 
 fun formatEpochSeconds(seconds: Long?): String? {
     if (seconds == null || seconds <= 0) return null
-    return java.text.DateFormat.getDateInstance(java.text.DateFormat.MEDIUM)
+    return java.text.DateFormat
+        .getDateInstance(java.text.DateFormat.MEDIUM)
         .format(java.util.Date(seconds * 1000))
 }

@@ -17,9 +17,13 @@ import kotlinx.coroutines.flow.map
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "oquq_settings")
 
 enum class ThemeMode { BLACK, GRAY, DYNAMIC }
+
 enum class AppLanguage { SYSTEM, EN, RU }
+
 enum class ProxyMode { GLOBAL, RULE }
+
 enum class TunStack { MIXED, SYSTEM, GVISOR }
+
 enum class PerAppMode { INCLUDE, EXCLUDE }
 
 data class AppSettings(
@@ -43,8 +47,9 @@ data class AppSettings(
     val selectedProfileId: Long = -1L,
 )
 
-class SettingsRepository(private val context: Context) {
-
+class SettingsRepository(
+    private val context: Context,
+) {
     private object Keys {
         val THEME = stringPreferencesKey("theme")
         val LANGUAGE = stringPreferencesKey("language")
@@ -68,52 +73,75 @@ class SettingsRepository(private val context: Context) {
 
     val settings: Flow<AppSettings> = context.dataStore.data.map { p -> p.toSettings() }
 
-    suspend fun current(): AppSettings = context.dataStore.data.first().toSettings()
+    suspend fun current(): AppSettings =
+        context.dataStore.data
+            .first()
+            .toSettings()
 
-    private fun Preferences.toSettings() = AppSettings(
-        theme = enum(ThemeMode.BLACK, Keys.THEME),
-        language = enum(AppLanguage.SYSTEM, Keys.LANGUAGE),
-        proxyMode = enum(ProxyMode.RULE, Keys.PROXY_MODE),
-        blockAds = this[Keys.BLOCK_ADS] ?: false,
-        tunStack = enum(TunStack.MIXED, Keys.TUN_STACK),
-        mtu = this[Keys.MTU] ?: 9000,
-        sniffer = this[Keys.SNIFFER] ?: true,
-        urlTestUrl = this[Keys.URL_TEST] ?: "https://www.gstatic.com/generate_204",
-        socksShareEnabled = this[Keys.SOCKS_SHARE] ?: false,
-        socksSharePort = this[Keys.SOCKS_PORT] ?: 10808,
-        socksShareAllowLan = this[Keys.SOCKS_LAN] ?: false,
-        perAppEnabled = this[Keys.PER_APP] ?: false,
-        perAppMode = enum(PerAppMode.EXCLUDE, Keys.PER_APP_MODE),
-        perAppPackages = this[Keys.PER_APP_PKGS] ?: emptySet(),
-        autoStartOnBoot = this[Keys.AUTO_START] ?: false,
-        subsAutoUpdate = this[Keys.SUBS_AUTO] ?: true,
-        subsIntervalHours = this[Keys.SUBS_HOURS] ?: 12,
-        selectedProfileId = this[Keys.SELECTED] ?: -1L,
-    )
+    private fun Preferences.toSettings() =
+        AppSettings(
+            theme = enum(ThemeMode.BLACK, Keys.THEME),
+            language = enum(AppLanguage.SYSTEM, Keys.LANGUAGE),
+            proxyMode = enum(ProxyMode.RULE, Keys.PROXY_MODE),
+            blockAds = this[Keys.BLOCK_ADS] ?: false,
+            tunStack = enum(TunStack.MIXED, Keys.TUN_STACK),
+            mtu = this[Keys.MTU] ?: 9000,
+            sniffer = this[Keys.SNIFFER] ?: true,
+            urlTestUrl = this[Keys.URL_TEST] ?: "https://www.gstatic.com/generate_204",
+            socksShareEnabled = this[Keys.SOCKS_SHARE] ?: false,
+            socksSharePort = this[Keys.SOCKS_PORT] ?: 10808,
+            socksShareAllowLan = this[Keys.SOCKS_LAN] ?: false,
+            perAppEnabled = this[Keys.PER_APP] ?: false,
+            perAppMode = enum(PerAppMode.EXCLUDE, Keys.PER_APP_MODE),
+            perAppPackages = this[Keys.PER_APP_PKGS] ?: emptySet(),
+            autoStartOnBoot = this[Keys.AUTO_START] ?: false,
+            subsAutoUpdate = this[Keys.SUBS_AUTO] ?: true,
+            subsIntervalHours = this[Keys.SUBS_HOURS] ?: 12,
+            selectedProfileId = this[Keys.SELECTED] ?: -1L,
+        )
 
-    private inline fun <reified T : Enum<T>> Preferences.def(key: Preferences.Key<String>): T? =
-        this[key]?.let { runCatching { enumValueOf<T>(it) }.getOrNull() }
-
-    private inline fun <reified T : Enum<T>> enum(default: T, key: Preferences.Key<String>): T =
-        def(key) ?: default
+    private inline fun <reified T : Enum<T>> Preferences.enum(
+        default: T,
+        key: Preferences.Key<String>,
+    ): T {
+        val stored = this[key] ?: return default
+        return runCatching { enumValueOf<T>(stored) }.getOrDefault(default)
+    }
 
     suspend fun setTheme(v: ThemeMode) = edit { it[Keys.THEME] = v.name }
+
     suspend fun setLanguage(v: AppLanguage) = edit { it[Keys.LANGUAGE] = v.name }
+
     suspend fun setProxyMode(v: ProxyMode) = edit { it[Keys.PROXY_MODE] = v.name }
+
     suspend fun setBlockAds(v: Boolean) = edit { it[Keys.BLOCK_ADS] = v }
+
     suspend fun setTunStack(v: TunStack) = edit { it[Keys.TUN_STACK] = v.name }
+
     suspend fun setMtu(v: Int) = edit { it[Keys.MTU] = v }
+
     suspend fun setSniffer(v: Boolean) = edit { it[Keys.SNIFFER] = v }
+
     suspend fun setUrlTestUrl(v: String) = edit { it[Keys.URL_TEST] = v }
+
     suspend fun setSocksShareEnabled(v: Boolean) = edit { it[Keys.SOCKS_SHARE] = v }
+
     suspend fun setSocksPort(v: Int) = edit { it[Keys.SOCKS_PORT] = v }
+
     suspend fun setSocksAllowLan(v: Boolean) = edit { it[Keys.SOCKS_LAN] = v }
+
     suspend fun setPerAppEnabled(v: Boolean) = edit { it[Keys.PER_APP] = v }
+
     suspend fun setPerAppMode(v: PerAppMode) = edit { it[Keys.PER_APP_MODE] = v.name }
+
     suspend fun setPerAppPackages(v: Set<String>) = edit { it[Keys.PER_APP_PKGS] = v }
+
     suspend fun setAutoStart(v: Boolean) = edit { it[Keys.AUTO_START] = v }
+
     suspend fun setSubsAutoUpdate(v: Boolean) = edit { it[Keys.SUBS_AUTO] = v }
+
     suspend fun setSubsIntervalHours(v: Int) = edit { it[Keys.SUBS_HOURS] = v }
+
     suspend fun setSelectedProfile(v: Long) = edit { it[Keys.SELECTED] = v }
 
     private suspend fun edit(block: (androidx.datastore.preferences.core.MutablePreferences) -> Unit) {

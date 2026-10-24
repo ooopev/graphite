@@ -13,16 +13,20 @@ import kotlinx.coroutines.launch
 
 /** Starts the VPN after boot if the user opted in (default off — battery-friendly). */
 class BootReceiver : BroadcastReceiver() {
-
-    override fun onReceive(context: Context, intent: Intent) {
+    override fun onReceive(
+        context: Context,
+        intent: Intent,
+    ) {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
         val result = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.Main).launch {
             try {
                 val settings = SettingsRepository(context).current()
                 if (settings.autoStartOnBoot && settings.selectedProfileId > 0) {
-                    val profile = ProfileRepository.get(context)
-                        .profileOnce(settings.selectedProfileId)
+                    val profile =
+                        ProfileRepository
+                            .get(context)
+                            .profileOnce(settings.selectedProfileId)
                     if (profile != null) VpnController.connect(context, profile)
                 }
             } finally {

@@ -74,10 +74,11 @@ fun PowerButton(
     val halo by infinite.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            tween(1600, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
+        animationSpec =
+            infiniteRepeatable(
+                tween(1600, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse,
+            ),
         label = "halo",
     )
     val dialProgress by animateFloatAsState(
@@ -94,19 +95,20 @@ fun PowerButton(
     val iconTint = if (status == VpnStatus.CONNECTED) Black else Bone.copy(alpha = 0.86f)
 
     Box(
-        modifier = modifier
-            .size(sizeDp.dp)
-            .scale(scale)
-            .pointerInput(status) {
-                detectTapGestures(
-                    onPress = {
-                        pressed = true
-                        tryAwaitRelease()
-                        pressed = false
-                    },
-                    onTap = { onToggle() },
-                )
-            },
+        modifier =
+            modifier
+                .size(sizeDp.dp)
+                .scale(scale)
+                .pointerInput(status) {
+                    detectTapGestures(
+                        onPress = {
+                            pressed = true
+                            tryAwaitRelease()
+                            pressed = false
+                        },
+                        onTap = { onToggle() },
+                    )
+                },
         contentAlignment = Alignment.Center,
     ) {
         Canvas(Modifier.size(sizeDp.dp)) {
@@ -135,6 +137,7 @@ fun PowerButton(
                     )
                     drawCircle(color = Surface03, radius = innerR, center = c)
                 }
+
                 VpnStatus.CONNECTED -> {
                     // breathing halo
                     drawCircle(
@@ -155,6 +158,7 @@ fun PowerButton(
                     )
                     drawCircle(color = activeColor, radius = innerR, center = c)
                 }
+
                 else -> {
                     drawCircle(
                         color = if (status == VpnStatus.DISCONNECTING) Surface04 else Surface03,
@@ -175,9 +179,10 @@ fun PowerButton(
             imageVector = ImageVector.vectorResource(R.drawable.ic_stat_vpn),
             contentDescription = null,
             tint = iconTint,
-            modifier = Modifier
-                .size((sizeDp * 0.24).dp)
-                .graphicsLayer { alpha = if (status == VpnStatus.DISCONNECTING) 0.4f else 1f },
+            modifier =
+                Modifier
+                    .size((sizeDp * 0.24).dp)
+                    .graphicsLayer { alpha = if (status == VpnStatus.DISCONNECTING) 0.4f else 1f },
         )
     }
 }

@@ -17,38 +17,40 @@ val ErrorMuted = Color(0xFFB5696C)
 val SuccessMuted = Color(0xFF7E9B7F)
 
 /** Pure black AMOLED scheme — the default face of oQuQ. */
-val BlackColorScheme = darkColorScheme(
-    primary = Bone,
-    onPrimary = Black,
-    primaryContainer = Surface03,
-    onPrimaryContainer = Bone,
-    secondary = Smoke,
-    onSecondary = Black,
-    secondaryContainer = Surface03,
-    onSecondaryContainer = Bone,
-    tertiary = Smoke,
-    onTertiary = Black,
-    background = Black,
-    onBackground = Bone,
-    surface = Black,
-    onSurface = Bone,
-    surfaceVariant = Surface02,
-    onSurfaceVariant = Smoke,
-    surfaceContainer = Surface01,
-    surfaceContainerHigh = Surface02,
-    surfaceContainerHighest = Surface03,
-    outline = OutlineDark,
-    outlineVariant = Surface03,
-    error = ErrorMuted,
-    onError = Black,
-    scrim = Black,
-)
+val BlackColorScheme =
+    darkColorScheme(
+        primary = Bone,
+        onPrimary = Black,
+        primaryContainer = Surface03,
+        onPrimaryContainer = Bone,
+        secondary = Smoke,
+        onSecondary = Black,
+        secondaryContainer = Surface03,
+        onSecondaryContainer = Bone,
+        tertiary = Smoke,
+        onTertiary = Black,
+        background = Black,
+        onBackground = Bone,
+        surface = Black,
+        onSurface = Bone,
+        surfaceVariant = Surface02,
+        onSurfaceVariant = Smoke,
+        surfaceContainer = Surface01,
+        surfaceContainerHigh = Surface02,
+        surfaceContainerHighest = Surface03,
+        outline = OutlineDark,
+        outlineVariant = Surface03,
+        error = ErrorMuted,
+        onError = Black,
+        scrim = Black,
+    )
 
 /** Graphite scheme — same DNA with a whisper more elevation. */
-val GraphiteColorScheme = BlackColorScheme.copy(
-    background = Surface01,
-    surface = Surface01,
-    surfaceContainer = Surface02,
-    surfaceContainerHigh = Surface03,
-    surfaceContainerHighest = Surface04,
-)
+val GraphiteColorScheme =
+    BlackColorScheme.copy(
+        background = Surface01,
+        surface = Surface01,
+        surfaceContainer = Surface02,
+        surfaceContainerHigh = Surface03,
+        surfaceContainerHighest = Surface04,
+    )

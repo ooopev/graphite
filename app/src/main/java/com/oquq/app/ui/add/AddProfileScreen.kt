@@ -58,8 +58,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class AddProfileViewModel(app: Application) : AndroidViewModel(app) {
-
+class AddProfileViewModel(
+    app: Application,
+) : AndroidViewModel(app) {
     private val repo = ProfileRepository.get(app)
 
     /** 0 = ok(n), -1 = fail */
@@ -69,24 +70,31 @@ class AddProfileViewModel(app: Application) : AndroidViewModel(app) {
     fun importLinks(text: String) {
         viewModelScope.launch {
             busy.value = true
-            val parsed = text.lineSequence()
-                .map { it.trim() }
-                .filter { it.isNotBlank() }
-                .mapNotNull { LinkParser.parse(it) }
-                .distinctBy { it.rawLink }
-                .toList()
+            val parsed =
+                text
+                    .lineSequence()
+                    .map { it.trim() }
+                    .filter { it.isNotBlank() }
+                    .mapNotNull { LinkParser.parse(it) }
+                    .distinctBy { it.rawLink }
+                    .toList()
             lastImport.value = if (parsed.isEmpty()) -1 else repo.insertParsed(parsed)
             busy.value = false
         }
     }
 
-    fun addSubscription(name: String, url: String, onDone: () -> Unit) {
+    fun addSubscription(
+        name: String,
+        url: String,
+        onDone: () -> Unit,
+    ) {
         viewModelScope.launch {
             busy.value = true
-            val sub = com.oquq.app.core.model.Subscription(
-                name = name.ifBlank { url.substringAfter("//").take(24) },
-                url = url,
-            )
+            val sub =
+                com.oquq.app.core.model.Subscription(
+                    name = name.ifBlank { url.substringAfter("//").take(24) },
+                    url = url,
+                )
             val id = repo.addSubscription(sub)
             val update = SubscriptionParser.fetch(url).getOrNull()
             if (update != null) {
@@ -100,42 +108,74 @@ class AddProfileViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun buildVlessManual(
-        name: String, server: String, port: String, uuid: String,
-        sni: String, fingerprint: String, pbk: String, sid: String,
-        transport: String, path: String, host: String, flow: String,
+        name: String,
+        server: String,
+        port: String,
+        uuid: String,
+        sni: String,
+        fingerprint: String,
+        pbk: String,
+        sid: String,
+        transport: String,
+        path: String,
+        host: String,
+        flow: String,
         allowInsecure: Boolean,
     ) {
-        val link = buildVlessUri(
-            name, server, port, uuid, sni, fingerprint, pbk, sid, transport, path, host, flow, allowInsecure,
-        )
+        val link =
+            buildVlessUri(
+                name,
+                server,
+                port,
+                uuid,
+                sni,
+                fingerprint,
+                pbk,
+                sid,
+                transport,
+                path,
+                host,
+                flow,
+                allowInsecure,
+            )
         link?.let { importLinks(it) }
     }
 
     private fun buildVlessUri(
-        name: String, server: String, port: String, uuid: String,
-        sni: String, fingerprint: String, pbk: String, sid: String,
-        transport: String, path: String, host: String, flow: String,
+        name: String,
+        server: String,
+        port: String,
+        uuid: String,
+        sni: String,
+        fingerprint: String,
+        pbk: String,
+        sid: String,
+        transport: String,
+        path: String,
+        host: String,
+        flow: String,
         allowInsecure: Boolean,
     ): String? {
         if (server.isBlank() || uuid.isBlank() || port.toIntOrNull() == null) return null
-        val q = buildList {
-            add("type=${encode(transport.ifBlank { "tcp" })}")
-            if (pbk.isNotBlank()) {
-                add("security=reality")
-                add("pbk=${encode(pbk)}")
-                if (sid.isNotBlank()) add("sid=${encode(sid)}")
-                if (sni.isNotBlank()) add("sni=${encode(sni)}")
-                if (fingerprint.isNotBlank()) add("fp=${encode(fingerprint)}")
-                if (flow.isNotBlank()) add("flow=${encode(flow)}")
-            } else {
-                add("security=none")
-                if (sni.isNotBlank()) add("sni=${encode(sni)}")
-                if (fingerprint.isNotBlank()) add("fp=${encode(fingerprint)}")
-            }
-            if (path.isNotBlank()) add("path=${encode(path)}")
-            if (host.isNotBlank()) add("host=${encode(host)}")
-            if (allowInsecure) add("allowInsecure=1")
-        }.joinToString("&")
+        val q =
+            buildList {
+                add("type=${encode(transport.ifBlank { "tcp" })}")
+                if (pbk.isNotBlank()) {
+                    add("security=reality")
+                    add("pbk=${encode(pbk)}")
+                    if (sid.isNotBlank()) add("sid=${encode(sid)}")
+                    if (sni.isNotBlank()) add("sni=${encode(sni)}")
+                    if (fingerprint.isNotBlank()) add("fp=${encode(fingerprint)}")
+                    if (flow.isNotBlank()) add("flow=${encode(flow)}")
+                } else {
+                    add("security=none")
+                    if (sni.isNotBlank()) add("sni=${encode(sni)}")
+                    if (fingerprint.isNotBlank()) add("fp=${encode(fingerprint)}")
+                }
+                if (path.isNotBlank()) add("path=${encode(path)}")
+                if (host.isNotBlank()) add("host=${encode(host)}")
+                if (allowInsecure) add("allowInsecure=1")
+            }.joinToString("&")
         return "vless://${encode(uuid)}@${encode(server)}:${port.trim()}?$q#${encode(name.ifBlank { server })}"
     }
 
@@ -161,25 +201,32 @@ fun AddProfileScreen(
         if (!initialLink.isNullOrBlank()) vm.importLinks(initialLink)
     }
 
-    val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
-        result.contents?.let { vm.importLinks(it) }
-    }
-    val cameraPermission = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission(),
-    ) { granted ->
-        if (granted) scanLauncher.launch(ScanOptions().apply {
-            setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-            setBeepEnabled(false)
-            setOrientationLocked(false)
-            setPrompt("")
-        })
-    }
+    val scanLauncher =
+        rememberLauncherForActivityResult(ScanContract()) { result ->
+            result.contents?.let { vm.importLinks(it) }
+        }
+    val cameraPermission =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestPermission(),
+        ) { granted ->
+            if (granted) {
+                scanLauncher.launch(
+                    ScanOptions().apply {
+                        setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                        setBeepEnabled(false)
+                        setOrientationLocked(false)
+                        setPrompt("")
+                    },
+                )
+            }
+        }
 
-    val importMessage = when (lastImport) {
-        null -> null
-        -1 -> stringResource(R.string.import_fail)
-        else -> stringResource(R.string.import_n, lastImport ?: 0)
-    }
+    val importMessage =
+        when (lastImport) {
+            null -> null
+            -1 -> stringResource(R.string.import_fail)
+            else -> stringResource(R.string.import_n, lastImport ?: 0)
+        }
 
     Column(
         Modifier
@@ -210,8 +257,10 @@ fun AddProfileScreen(
             divider = {},
         ) {
             listOf(
-                R.string.tab_link, R.string.tab_subscription,
-                R.string.tab_manual, R.string.tab_qr,
+                R.string.tab_link,
+                R.string.tab_subscription,
+                R.string.tab_manual,
+                R.string.tab_qr,
             ).forEachIndexed { i, res ->
                 Tab(
                     selected = tab == i,
@@ -243,12 +292,16 @@ fun AddProfileScreen(
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         OutlinedButtonCompact(stringResource(R.string.paste_from_clipboard)) {
                             val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            link = cm.primaryClip?.getItemAt(0)?.text?.toString() ?: link
+                            link = cm.primaryClip
+                                ?.getItemAt(0)
+                                ?.text
+                                ?.toString() ?: link
                         }
                         Spacer(Modifier.width(6.dp))
                         ActionButton(stringResource(R.string.add), busy) { vm.importLinks(link) }
                     }
                 }
+
                 1 -> {
                     OquqTextField(subName, { subName = it }, stringResource(R.string.field_sub_name))
                     OquqTextField(subUrl, { subUrl = it }, stringResource(R.string.field_sub_url))
@@ -256,7 +309,11 @@ fun AddProfileScreen(
                         vm.addSubscription(subName, subUrl) { onBack() }
                     }
                 }
-                2 -> ManualVlessForm(vm, busy)
+
+                2 -> {
+                    ManualVlessForm(vm, busy)
+                }
+
                 3 -> {
                     Text(
                         stringResource(R.string.qr_scan),
@@ -287,7 +344,10 @@ fun AddProfileScreen(
 }
 
 @Composable
-private fun ManualVlessForm(vm: AddProfileViewModel, busy: Boolean) {
+private fun ManualVlessForm(
+    vm: AddProfileViewModel,
+    busy: Boolean,
+) {
     var name by remember { mutableStateOf("") }
     var server by remember { mutableStateOf("") }
     var port by remember { mutableStateOf("443") }
@@ -310,8 +370,14 @@ private fun ManualVlessForm(vm: AddProfileViewModel, busy: Boolean) {
         LabelSmall(stringResource(R.string.field_transport))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("tcp", "ws", "grpc", "xhttp").forEach { t ->
-                if (t == transport) Button(onClick = {}) { Text(t) }
-                else TextButton(onClick = { transport = t; flow = "" }) { Text(t, color = Smoke) }
+                if (t == transport) {
+                    Button(onClick = {}) { Text(t) }
+                } else {
+                    TextButton(onClick = {
+                        transport = t
+                        flow = ""
+                    }) { Text(t, color = Smoke) }
+                }
             }
         }
         if (transport == "ws" || transport == "xhttp") {
@@ -332,27 +398,47 @@ private fun ManualVlessForm(vm: AddProfileViewModel, busy: Boolean) {
         )
         ActionButton(stringResource(R.string.add), busy) {
             vm.buildVlessManual(
-                name, server, port, uuid, sni, fp, pbk, sid, transport, path, host, flow, insecure,
+                name,
+                server,
+                port,
+                uuid,
+                sni,
+                fp,
+                pbk,
+                sid,
+                transport,
+                path,
+                host,
+                flow,
+                insecure,
             )
         }
     }
 }
 
 @Composable
-private fun ActionButton(text: String, busy: Boolean, onClick: () -> Unit) {
+private fun ActionButton(
+    text: String,
+    busy: Boolean,
+    onClick: () -> Unit,
+) {
     Button(
         onClick = onClick,
         enabled = !busy,
         modifier = Modifier.fillMaxWidth(),
-        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-            containerColor = Bone,
-            contentColor = com.oquq.app.ui.theme.Black,
-        ),
+        colors =
+            androidx.compose.material3.ButtonDefaults.buttonColors(
+                containerColor = Bone,
+                contentColor = com.oquq.app.ui.theme.Black,
+            ),
     ) { Text(text) }
 }
 
 @Composable
-private fun OutlinedButtonCompact(text: String, onClick: () -> Unit) {
+private fun OutlinedButtonCompact(
+    text: String,
+    onClick: () -> Unit,
+) {
     androidx.compose.material3.OutlinedButton(onClick = onClick) { Text(text, color = Bone) }
 }
 

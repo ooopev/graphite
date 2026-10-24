@@ -9,7 +9,9 @@ package com.oquq.app.core.model
  *  - AWG      — AmneziaWG (libawg): obfuscated WireGuard. Owns the TUN fd directly,
  *               because sing-box has no AmneziaWG support (open upstream issues #3159 / #4045).
  */
-enum class Protocol(val engine: Engine) {
+enum class Protocol(
+    val engine: Engine,
+) {
     VLESS(Engine.SING_BOX),
     VMESS(Engine.SING_BOX),
     TROJAN(Engine.SING_BOX),
@@ -27,7 +29,8 @@ enum class Protocol(val engine: Engine) {
 
 /** XHTTP and other Xray-only transports must be served by the Xray core. */
 fun Profile.effectiveEngine(params: ProfileParams): Protocol.Engine =
-    if (protocol == Protocol.VLESS && params.transport.equals("xhttp", true))
+    if (protocol == Protocol.VLESS && params.transport.equals("xhttp", true)) {
         Protocol.Engine.XRAY
-    else
+    } else {
         protocol.engine
+    }

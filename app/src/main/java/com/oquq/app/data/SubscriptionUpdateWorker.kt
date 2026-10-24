@@ -24,44 +24,53 @@ class SubscriptionUpdateWorker(
     context: Context,
     params: WorkerParameters,
 ) : CoroutineWorker(context, params) {
-
     override suspend fun doWork(): Result {
         val repo = ProfileRepository.get(applicationContext)
         var failures = 0
         repo.subscriptions().first().forEach { sub ->
             if (!sub.autoUpdate) return@forEach
-            SubscriptionParser.fetch(sub.url)
+            SubscriptionParser
+                .fetch(sub.url)
                 .onSuccess { update ->
                     repo.updateSubscription(SubscriptionParser.applyToSubscription(sub, update))
                     repo.replaceSubscriptionProfiles(sub.id, update.profiles)
-                }
-                .onFailure { failures++ }
+                }.onFailure { failures++ }
         }
-        return if (failures == 0) Result.success()
-        else if (runAttemptCount < 3) Result.retry() else Result.failure()
+        return if (failures == 0) {
+            Result.success()
+        } else if (runAttemptCount < 3) {
+            Result.retry()
+        } else {
+            Result.failure()
+        }
     }
 
     companion object {
         private const val WORK = "oquq_subscription_update"
 
         /** Re-schedules (or cancels) the periodic work from settings changes. */
-        fun schedule(context: Context, enabled: Boolean, intervalHours: Int) {
+        fun schedule(
+            context: Context,
+            enabled: Boolean,
+            intervalHours: Int,
+        ) {
             val wm = WorkManager.getInstance(context)
             if (!enabled) {
                 wm.cancelUniqueWork(WORK)
                 return
             }
-            val request = PeriodicWorkRequestBuilder<SubscriptionUpdateWorker>(
-                intervalHours.coerceIn(1, 24 * 7), TimeUnit.HOURS,
-            )
-                .setConstraints(
-                    Constraints.Builder()
+            val request =
+                PeriodicWorkRequestBuilder<SubscriptionUpdateWorker>(
+                    intervalHours.coerceIn(1, 24 * 7).toLong(),
+                    TimeUnit.HOURS,
+                ).setConstraints(
+                    Constraints
+                        .Builder()
                         .setRequiredNetworkType(NetworkType.CONNECTED)
                         .setRequiresBatteryNotLow(true)
                         .build(),
-                )
-                .setInitialDelay(15, TimeUnit.MINUTES)
-                .build()
+                ).setInitialDelay(15, TimeUnit.MINUTES)
+                    .build()
             wm.enqueueUniquePeriodicWork(WORK, ExistingPeriodicWorkPolicy.UPDATE, request)
         }
     }

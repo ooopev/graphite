@@ -35,12 +35,11 @@ import com.oquq.app.ui.settings.SettingsScreen
 import com.oquq.app.ui.subs.SubscriptionsScreen
 import com.oquq.app.ui.theme.OquqTheme
 import com.oquq.app.vpn.Notifications
-import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 class MainActivity : ComponentActivity() {
-
     /** vless://… link arriving via ACTION_VIEW (launch or onNewIntent). */
     private var pendingLink by mutableStateOf<String?>(null)
 
@@ -50,9 +49,10 @@ class MainActivity : ComponentActivity() {
     override fun attachBaseContext(newBase: Context) {
         // Per-app locale without AppCompat: quick SharedPreferences mirror of the
         // DataStore setting (written in onCreate), applied via configuration wrap.
-        val lang = newBase
-            .getSharedPreferences("oquq_locale", Context.MODE_PRIVATE)
-            .getString("lang", null)
+        val lang =
+            newBase
+                .getSharedPreferences("oquq_locale", Context.MODE_PRIVATE)
+                .getString("lang", null)
         super.attachBaseContext(lang?.let { applyLanguage(newBase, it) } ?: newBase)
     }
 
@@ -74,19 +74,24 @@ class MainActivity : ComponentActivity() {
         val settingsRepo = SettingsRepository(this)
         lifecycleScope.launch {
             settingsRepo.settings.collect { s ->
-                val tag = when (s.language) {
-                    com.oquq.app.data.AppLanguage.EN -> "en"
-                    com.oquq.app.data.AppLanguage.RU -> "ru"
-                    com.oquq.app.data.AppLanguage.SYSTEM -> null
-                }
+                val tag =
+                    when (s.language) {
+                        com.oquq.app.data.AppLanguage.EN -> "en"
+                        com.oquq.app.data.AppLanguage.RU -> "ru"
+                        com.oquq.app.data.AppLanguage.SYSTEM -> null
+                    }
                 getSharedPreferences("oquq_locale", Context.MODE_PRIVATE)
-                    .edit().putString("lang", tag).apply()
+                    .edit()
+                    .putString("lang", tag)
+                    .apply()
             }
         }
 
         setContent {
             val settings by settingsRepo.settings.collectAsState(
-                initial = com.oquq.app.data.AppSettings(),
+                initial =
+                    com.oquq.app.data
+                        .AppSettings(),
             )
             OquqTheme(theme = settings.theme) {
                 OquqNavHost(
@@ -105,16 +110,29 @@ class MainActivity : ComponentActivity() {
     private fun captureDeepLink(intent: Intent?) {
         val data = intent?.data ?: return
         val scheme = data.scheme?.lowercase() ?: return
-        val known = setOf(
-            "vless", "vmess", "trojan", "ss", "hysteria2", "hy2", "tuic",
-            "socks", "http", "vpn", "oquq",
-        )
+        val known =
+            setOf(
+                "vless",
+                "vmess",
+                "trojan",
+                "ss",
+                "hysteria2",
+                "hy2",
+                "tuic",
+                "socks",
+                "http",
+                "vpn",
+                "oquq",
+            )
         if (scheme in known && LinkParser.parse(data.toString()) != null) {
             pendingLink = data.toString()
         }
     }
 
-    private fun applyLanguage(base: Context, tag: String): Context {
+    private fun applyLanguage(
+        base: Context,
+        tag: String,
+    ): Context {
         val locale = Locale.forLanguageTag(tag)
         val config = Configuration(base.resources.configuration)
         config.setLocale(locale)
@@ -129,7 +147,10 @@ class MainActivity : ComponentActivity() {
 }
 
 @androidx.compose.runtime.Composable
-private fun OquqNavHost(deepLink: String?, onDeepLinkConsumed: () -> Unit) {
+private fun OquqNavHost(
+    deepLink: String?,
+    onDeepLinkConsumed: () -> Unit,
+) {
     val nav = rememberNavController()
     val context = androidx.compose.ui.platform.LocalContext.current
 

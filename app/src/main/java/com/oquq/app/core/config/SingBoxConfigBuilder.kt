@@ -33,6 +33,7 @@ object SingBoxConfigBuilder {
     fun build(
         profile: Profile,
         settings: AppSettings,
+        logOutputPath: String? = null,
     ): String {
         val params = LinkParser.paramsFromJson(profile.params)
         // WireGuard (plain) is served by a 1.11+ endpoint tagged "proxy" — no outbound needed.
@@ -52,12 +53,6 @@ object SingBoxConfigBuilder {
                         put("tag", "block")
                     },
                 )
-                add(
-                    buildJsonObject {
-                        put("type", "dns")
-                        put("tag", "dns-out")
-                    },
-                )
             }
 
         val inbounds =
@@ -70,8 +65,13 @@ object SingBoxConfigBuilder {
                         put("address", JsonArray(listOf("172.19.0.1/30", "fdfe:dcba:9876::1/126").map(::p)))
                         put("mtu", settings.mtu)
                         put("auto_route", true)
-                        // strict_route kills any packet that tries to escape the tunnel — VPN-side kill switch.
-                        put("strict_route", true)
+                        // Force Android DNS requests into sing-box. The fake
+                        // DNS address is derived by the core (tun_addr+1,
+                        // e.g. 172.19.0.2) and hijacked in the tun stack —
+                        // but ONLY while dns_address is unset: setting it
+                        // explicitly leaves the hijack list empty and system
+                        // DNS dies ("no address associated with hostname").
+                        put("dns_mode", "hijack")
                         put(
                             "stack",
                             when (settings.tunStack) {
@@ -94,16 +94,8 @@ object SingBoxConfigBuilder {
                 }
             }
 
-        val rules =
+            val rules =
             buildList {
-                // 1.11+ route actions: sniff then hijack DNS inside the tunnel.
-                add(buildJsonObject { put("action", "sniff") })
-                add(
-                    buildJsonObject {
-                        put("protocol", "dns")
-                        put("action", "hijack-dns")
-                    },
-                )
                 if (settings.proxyMode == com.oquq.app.data.ProxyMode.RULE) {
                     add(
                         buildJsonObject {
@@ -127,8 +119,11 @@ object SingBoxConfigBuilder {
         val config =
             buildJsonObject {
                 putJsonObject("log") {
-                    put("level", "warn")
+                    // Core logs go to a file we can read back via run-as/logs:
+                    // without an explicit output the in-process core is mute.
+                    put("level", if (logOutputPath != null) "debug" else "warn")
                     put("timestamp", true)
+                    logOutputPath?.let { put("output", it) }
                 }
                 put("dns", dnsSection(profile, params))
                 put("endpoints", endpoints)
@@ -156,12 +151,6 @@ object SingBoxConfigBuilder {
                                 ),
                             ),
                         )
-                    }
-                }
-                putJsonObject("experimental") {
-                    // cache_file persists rule-set/state between runs: faster cold start, fewer radio wakeups.
-                    putJsonObject("cache_file") {
-                        put("enabled", true)
                     }
                 }
             }
@@ -296,8 +285,10 @@ object SingBoxConfigBuilder {
                             put("server_port", profile.port)
                             put("uuid", params.uuid ?: "")
                             params.flow?.let { put("flow", it) }
-                            put("packet_encoding", "xudp")
-                            tls(params, reality = params.realityPbk != null)
+            // packet_encoding was removed from recent sing-box schemas. It is
+            // optional for VLESS and leaving it out keeps the config accepted
+            // by both the bundled libbox and current sing-box releases.
+                            tls(params, profile.server, reality = params.realityPbk != null)
                             transport(params)
                         }
 
@@ -308,8 +299,7 @@ object SingBoxConfigBuilder {
                             put("uuid", params.uuid ?: "")
                             put("security", params.encryption ?: "auto")
                             put("alter_id", 0)
-                            put("packet_encoding", "xudp")
-                            if (params.sni != null || params.alpn.isNotEmpty()) tls(params, reality = false)
+                            if (params.sni != null || params.alpn.isNotEmpty()) tls(params, profile.server, reality = false)
                             transport(params)
                         }
 
@@ -318,7 +308,7 @@ object SingBoxConfigBuilder {
                             put("server", profile.server)
                             put("server_port", profile.port)
                             put("password", params.password ?: "")
-                            tls(params, reality = false)
+                            tls(params, profile.server, reality = false)
                             transport(params)
                         }
 
@@ -343,7 +333,7 @@ object SingBoxConfigBuilder {
                                     put("password", params.hy2ObfsPassword ?: "")
                                 }
                             }
-                            tls(params, reality = false)
+                            tls(params, profile.server, reality = false)
                         }
 
                         Protocol.TUIC -> {
@@ -354,7 +344,7 @@ object SingBoxConfigBuilder {
                             put("password", params.password ?: "")
                             put("congestion_control", params.congestionControl ?: "bbr")
                             put("udp_relay_mode", params.udpRelayMode ?: "native")
-                            tls(params, reality = false)
+                            tls(params, profile.server, reality = false)
                         }
 
                         Protocol.WIREGUARD, Protocol.AMNEZIA_WG -> {
@@ -384,11 +374,15 @@ object SingBoxConfigBuilder {
 
     private fun JsonObjectBuilder.tls(
         params: ProfileParams,
+        currentServer: String,
         reality: Boolean,
     ) {
         putJsonObject("tls") {
             put("enabled", true)
-            put("server_name", params.sni ?: "")
+            // Many subscription formats omit sni when it is identical to the
+            // endpoint host. An empty server_name is rejected by some libbox
+            // builds during config decoding; the host is the safe fallback.
+            put("server_name", params.sni?.ifBlank { null } ?: currentServer)
             put("insecure", params.allowInsecure)
             if (params.alpn.isNotEmpty()) put("alpn", JsonArray(params.alpn.map(::p)))
             if (params.fingerprint != null || reality) {

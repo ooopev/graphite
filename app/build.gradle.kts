@@ -14,17 +14,37 @@ android {
         applicationId = "com.oquq.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.1.0"
         resourceConfigurations += listOf("en", "ru")
     }
 
     // R8: full mode enabled globally in gradle.properties — smaller, faster release binaries.
+    // Combined core AAR is arm64-only today.
+    defaultConfig {
+        ndk {
+            abiFilters += listOf("arm64-v8a")
+        }
+    }
+
+    signingConfigs {
+        create("release") {
+            val ks = rootProject.file("oquq.keystore")
+            if (ks.exists()) {
+                storeFile = ks
+                storePassword = "oquq2026"
+                keyAlias = "oquq"
+                keyPassword = "oquq2026"
+            }
+        }
+    }
+
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
         }
         release {
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -49,8 +69,11 @@ android {
         compose = true
         buildConfig = true
     }
+
+    // The combined core AAR is arm64-only; ABI filtering keeps the APK lean.
     packaging {
-        jniLibs.useLegacyPackaging = false
+        // Compress the 90MB combined core .so: ~3x smaller APK, extracted once at install.
+        jniLibs.useLegacyPackaging = true
         resources.excludes += setOf(
             "META-INF/*.kotlin_module",
             "META-INF/AL2.0",

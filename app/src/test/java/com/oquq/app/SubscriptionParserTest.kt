@@ -52,6 +52,13 @@ class SubscriptionParserTest {
     }
 
     @Test
+    fun `base64 subscription with bom and url alphabet decodes`() {
+        val payload = "\uFEFF" + linkList.joinToString("\n")
+        val b64 = Base64.getUrlEncoder().withoutPadding().encodeToString(payload.toByteArray())
+        assertEquals(3, SubscriptionParser.parseBody(b64).size)
+    }
+
+    @Test
     fun `duplicates and garbage lines dropped`() {
         val body = (linkList + linkList[0] + "total-garbage-line").joinToString("\n")
         val profiles = SubscriptionParser.parseBody(body)

@@ -60,7 +60,11 @@ object SubscriptionParser {
 
     /** Accepts base64-encoded or plain lists of links, one per line. */
     fun parseBody(body: String): List<Profile> {
-        val text = body.trim()
+        // Providers commonly prepend an UTF-8 BOM and wrap the payload in
+        // whitespace. Keep the original lines after removing those bytes;
+        // otherwise the first link is skipped and the imported profile can
+        // produce an empty/invalid engine config.
+        val text = body.trim().removePrefix("\uFEFF").trim()
         val decoded =
             when {
                 text.startsWith("vless://", true) || text.startsWith("ss://", true) ||
@@ -74,6 +78,7 @@ object SubscriptionParser {
                     runCatching {
                         val norm =
                             text
+                                .filterNot { it == '\uFEFF' }
                                 .replace('-', '+')
                                 .replace('_', '/')
                                 .let { if (it.length % 4 == 0) it else it + "=".repeat(4 - it.length % 4) }
@@ -87,6 +92,7 @@ object SubscriptionParser {
                 }
             }
         return decoded
+            .removePrefix("\uFEFF")
             .lineSequence()
             .map { it.trim() }
             .filter { it.isNotBlank() }

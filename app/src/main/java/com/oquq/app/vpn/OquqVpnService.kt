@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.TrafficStats
 import android.net.VpnService
 import android.os.Build
+import android.util.Log
 import android.os.ParcelFileDescriptor
 import androidx.core.app.ServiceCompat
 import com.oquq.app.R
@@ -19,7 +20,7 @@ import com.oquq.app.core.repo.ProfileRepository
 import com.oquq.app.data.AppSettings
 import com.oquq.app.data.PerAppMode
 import com.oquq.app.data.SettingsRepository
-import com.oquq.app.ui.util.formatBytes
+import com.oquq.app.ui.util.formatSpeed
 import com.oquq.app.vpn.engine.AwgEngine
 import com.oquq.app.vpn.engine.SingBoxEngine
 import com.oquq.app.vpn.engine.XrayEngine
@@ -44,11 +45,38 @@ class OquqVpnService : VpnService() {
         const val ACTION_CONNECT = "com.oquq.app.action.CONNECT"
         const val ACTION_DISCONNECT = "com.oquq.app.action.DISCONNECT"
         const val EXTRA_PROFILE_ID = "profile_id"
+
+        // Engines live in singletons, but the service instance can be
+        // recreated at any moment (quick disconnect→connect: stopSelf from
+        // the old instance races the new one's onStartCommand). Only the
+        // instance that currently owns the engines may stop them.
+        @Volatile
+        private var activeInstance: OquqVpnService? = null
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        activeInstance = this
+        androidx.core.content.ContextCompat.registerReceiver(
+            this,
+            screenReceiver,
+            android.content.IntentFilter().apply {
+                addAction(android.content.Intent.ACTION_SCREEN_OFF)
+                addAction(android.content.Intent.ACTION_SCREEN_ON)
+            },
+            androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var statsJob: Job? = null
     private var tunnelFd: ParcelFileDescriptor? = null
+
+    // Bumped by every command; a coroutine whose generation is stale must
+    // not touch engines or state — its error path would otherwise shut down
+    // the engines a newer command just started (CONNECT→DISCONNECT→CONNECT
+    // inside one second leaves a zombie: VPN agent up, nobody reads the tun).
+    private var commandGeneration = 0
 
     override fun onStartCommand(
         intent: Intent?,
@@ -85,6 +113,7 @@ class OquqVpnService : VpnService() {
     // ------------------------------------------------------------------ connect
 
     private suspend fun connectTo(profileId: Long) {
+        val generation = ++commandGeneration
         val repo = ProfileRepository.get(this)
         val settings = SettingsRepository(this).current()
 
@@ -102,10 +131,15 @@ class OquqVpnService : VpnService() {
             }
 
         if (profile == null) {
-            VpnController.update { it.copy(status = VpnStatus.IDLE, error = null) }
-            stopCleanly()
+            if (generation == commandGeneration) {
+                VpnController.update { it.copy(status = VpnStatus.IDLE, error = null) }
+                stopCleanly()
+            }
             return
         }
+
+        // profileOnce/settings suspend; a newer command may have landed since.
+        if (generation != commandGeneration) return
 
         val params = LinkParser.paramsFromJson(profile.params)
         val engine = profile.effectiveEngine(params)
@@ -142,7 +176,13 @@ class OquqVpnService : VpnService() {
                     }
                 }
             }.getOrElse { e ->
-                VpnController.update { it.copy(status = VpnStatus.IDLE, error = e.message) }
+                if (generation != commandGeneration) return // superseded: engines belong to a newer command
+                val details = generateSequence<Throwable>(e) { it.cause }
+                    .map { "${it::class.java.simpleName}: ${it.message.orEmpty()}" }
+                    .joinToString(" <- ")
+                Log.e("oQuQ", "VPN start failed: $details", e)
+                runCatching { java.io.File(filesDir, "last-error.txt").writeText(details) }
+                VpnController.update { it.copy(status = VpnStatus.IDLE, error = details) }
                 shutdownEngines()
                 stopCleanly()
                 return
@@ -166,7 +206,11 @@ class OquqVpnService : VpnService() {
         SingBoxEngine.start(
             context = this,
             vpnService = this,
-            config = SingBoxConfigBuilder.build(profile, settings),
+            config = SingBoxConfigBuilder.build(
+                profile,
+                settings,
+                java.io.File(filesDir, "singbox.log").path,
+            ),
             perAppMode = if (settings.perAppEnabled) settings.perAppMode else null,
             perAppPackages = settings.perAppPackages,
         )
@@ -212,17 +256,29 @@ class OquqVpnService : VpnService() {
 
     // ------------------------------------------------------------------ stats
 
+    private var currentEngine: Protocol.Engine? = null
+    private var screenOn = true
+
     /**
-     * 1 Hz stats pump. The notification refresh carries negligible cost (text
-     * only, IMPORTANCE_LOW); the UI samples the same flow and pauses with the
-     * lifecycle, so nothing ticks while the screen is off beyond this light
-     * notification update, which users expect from a VPN app.
+     * 1 Hz stats pump feeding both the UI flow and the notification speed
+     * line. Everything periodic pauses while the screen is off (see
+     * [screenReceiver]): each tick is a CPU wakeup that would otherwise keep
+     * the device out of deep sleep for no visible gain.
      */
     private fun startStatsLoop(engine: Protocol.Engine) {
+        currentEngine = engine
+        if (!screenOn) return
+        resumeStatsLoop()
+    }
+
+    private fun resumeStatsLoop() {
+        val engine = currentEngine ?: return
         statsJob?.cancel()
         val uid = android.os.Process.myUid()
         val baseRx = TrafficStats.getUidRxBytes(uid)
         val baseTx = TrafficStats.getUidTxBytes(uid)
+        var prevUp = 0L
+        var prevDown = 0L
         statsJob =
             scope.launch {
                 while (isActive) {
@@ -237,16 +293,53 @@ class OquqVpnService : VpnService() {
                                 SingBoxEngine.queryStats()
                             }
                         }
+                    // Per-second speed, clamped at zero: core reloads reset
+                    // the cumulative counters and must not show as negative.
+                    val spUp = maxOf(0L, up - prevUp)
+                    val spDown = maxOf(0L, down - prevDown)
+                    prevUp = up
+                    prevDown = down
                     VpnController.update { it.copy(upBytes = up, downBytes = down) }
-                    updateNotification(speedLine = formatBytes(down) + " ▼  " + formatBytes(up) + " ▲")
+                    updateNotification(
+                        speedLine = formatSpeed(spDown) + " ▼  " + formatSpeed(spUp) + " ▲",
+                    )
                     delay(1000)
                 }
             }
     }
 
+    private fun pauseStatsLoop() {
+        statsJob?.cancel()
+        statsJob = null
+    }
+
+    private val screenReceiver =
+        object : android.content.BroadcastReceiver() {
+            override fun onReceive(context: android.content.Context, intent: android.content.Intent) {
+                when (intent.action) {
+                    android.content.Intent.ACTION_SCREEN_OFF -> {
+                        screenOn = false
+                        pauseStatsLoop()
+                        SingBoxEngine.pauseStatusUpdates()
+                    }
+
+                    android.content.Intent.ACTION_SCREEN_ON -> {
+                        screenOn = true
+                        if (VpnController.state.value.status == VpnStatus.CONNECTED) {
+                            SingBoxEngine.resumeStatusUpdates()
+                            resumeStatsLoop()
+                        }
+                    }
+                }
+            }
+        }
+
     // ------------------------------------------------------------------ shutdown
 
     private suspend fun shutdown() {
+        // Supersede any in-flight connect: its continuation must not start
+        // engines after the user just asked us to stop.
+        ++commandGeneration
         VpnController.update { it.copy(status = VpnStatus.DISCONNECTING) }
         shutdownEngines()
         stopCleanly()
@@ -256,6 +349,7 @@ class OquqVpnService : VpnService() {
     private fun shutdownEngines() {
         statsJob?.cancel()
         statsJob = null
+        currentEngine = null
         runCatching { XrayEngine.stop() }
         runCatching { SingBoxEngine.stop() }
         runCatching { AwgEngine.stop() }
@@ -274,7 +368,11 @@ class OquqVpnService : VpnService() {
     }
 
     override fun onDestroy() {
-        shutdownEngines()
+        runCatching { unregisterReceiver(screenReceiver) }
+        if (activeInstance === this) {
+            activeInstance = null
+            shutdownEngines()
+        }
         scope.cancel()
         super.onDestroy()
     }

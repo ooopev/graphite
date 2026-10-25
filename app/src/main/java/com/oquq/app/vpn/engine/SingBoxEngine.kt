@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
+import android.util.Log
 
 /**
  * sing-box engine (libbox.aar, sing-box 1.14 — CommandServer API).
@@ -53,6 +54,9 @@ object SingBoxEngine {
 
     private fun ensureSetup(context: Context) {
         if (setupDone) return
+        // libbox persists cache/state under workingPath. A schema change in
+        // the bundled core must not reuse state written by an older build.
+        File(context.filesDir, "core").deleteRecursively()
         Libbox.setup(
             SetupOptions().apply {
                 basePath = context.filesDir.path
@@ -76,6 +80,7 @@ object SingBoxEngine {
     ) {
         check(commandServer == null) { "sing-box already running" }
         ensureSetup(context)
+        ProxyDiagnostics.start(context)
 
         defaultNetworkMonitor = DefaultNetworkMonitor(context)
         platform = BoxPlatformService(vpnService, defaultNetworkMonitor!!)
@@ -85,16 +90,19 @@ object SingBoxEngine {
         server.startOrReloadService(
             config,
             OverrideOptions().apply {
-                if (perAppMode != null && perAppPackages.isNotEmpty()) {
-                    when (perAppMode) {
-                        PerAppMode.INCLUDE -> {
-                            includePackage = StringIteratorImpl(perAppPackages + context.packageName)
-                        }
+                when {
+                    perAppMode == PerAppMode.INCLUDE && perAppPackages.isNotEmpty() ->
+                        includePackage = StringIteratorImpl(perAppPackages)
 
-                        PerAppMode.EXCLUDE -> {
-                            excludePackage = StringIteratorImpl(perAppPackages - context.packageName)
-                        }
-                    }
+                    perAppMode == PerAppMode.EXCLUDE && perAppPackages.isNotEmpty() ->
+                        excludePackage = StringIteratorImpl(perAppPackages + context.packageName)
+
+                    else ->
+                        // Default: keep our own process OUT of the tun. The
+                        // Xray hop dials its upstream from this very process;
+                        // without the exclusion that socket is routed back
+                        // into the tunnel and loops into the SOCKS hop itself.
+                        excludePackage = StringIteratorImpl(listOf(context.packageName))
                 }
             },
         )
@@ -110,12 +118,36 @@ object SingBoxEngine {
             ).also { it.connect() }
     }
 
+    /** Stops the 1 Hz status socket push while the screen is off (battery). */
+    fun pauseStatusUpdates() {
+        runCatching { statusClient?.disconnect() }
+        statusClient = null
+    }
+
+    /** Re-subscribes after [pauseStatusUpdates]; no-op when not running. */
+    fun resumeStatusUpdates() {
+        if (statusClient != null || commandServer == null) return
+        runCatching {
+            statusClient =
+                CommandClient(
+                    StatusHandler(),
+                    CommandClientOptions().apply {
+                        addCommand(Libbox.CommandStatus)
+                        statusInterval = 1_000_000_000L // 1s in nanoseconds
+                    },
+                ).also { it.connect() }
+        }
+    }
+
     fun stop() {
         runCatching { statusClient?.disconnect() }
         statusClient = null
         runCatching { commandServer?.closeService() }
         runCatching { commandServer?.close() }
         commandServer = null
+        // Close the tun fds the core leaked (it only closes its dups); while
+        // one stays open Android keeps the VPN session alive after disconnect.
+        TunFdRegistry.closeAll()
         runCatching { defaultNetworkMonitor?.close() }
         defaultNetworkMonitor = null
         platform = null
@@ -141,11 +173,22 @@ object SingBoxEngine {
 
         override fun updateClashMode(mode: String?) {}
 
-        override fun writeConnectionEvents(events: io.nekohasekai.libbox.ConnectionEvents?) {}
+        override fun writeConnectionEvents(events: io.nekohasekai.libbox.ConnectionEvents?) {
+            val line = "connection-events: $events"
+            Log.e("oQuQ-proxyerror", line)
+            ProxyDiagnostics.write(line)
+        }
 
         override fun writeGroups(groups: io.nekohasekai.libbox.OutboundGroupIterator?) {}
 
-        override fun writeLogs(logs: io.nekohasekai.libbox.LogIterator?) {}
+        override fun writeLogs(logs: io.nekohasekai.libbox.LogIterator?) {
+            while (logs?.hasNext() == true) {
+                val entry = logs.next()
+                val line = "level=${entry.level}: ${entry.message}"
+                Log.e("oQuQ-proxyerror", line)
+                ProxyDiagnostics.write(line)
+            }
+        }
 
         override fun writeOutbounds(outbounds: io.nekohasekai.libbox.OutboundGroupItemIterator?) {}
 
@@ -170,6 +213,12 @@ object SingBoxEngine {
 
         override fun writeDebugMessage(message: String?) {}
     }
+}
+
+private object ProxyDiagnostics {
+    private var file: File? = null
+    fun start(context: Context) { file = File(context.filesDir, "proxyerror.log"); runCatching { file?.writeText("sing-box start\n") } }
+    fun write(line: String) { runCatching { file?.appendText(line + "\n") } }
 }
 
 /** gomobile StringIterator over a collection. */

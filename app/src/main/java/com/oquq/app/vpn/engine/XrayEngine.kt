@@ -5,7 +5,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
-import libXray.LibXray
+import io.nekohasekai.libXray.LibXray
 
 /**
  * Xray-core engine (libXray.aar, XTLS/libxray — Xray-core 26.x, API v3).

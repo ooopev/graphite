@@ -4,6 +4,8 @@
 -dontwarn go.**
 -keep class go.** { *; }
 -keep class io.nekohasekai.libbox.** { *; }
+-keep class io.nekohasekai.libXray.** { *; }
+-keep class io.nekohasekai.oquqawg.** { *; }
 -keep class io.github.xtls.libxray.** { *; }
 -keep class com.wireguard.** { *; }
 

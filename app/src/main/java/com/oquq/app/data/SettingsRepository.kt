@@ -31,7 +31,10 @@ data class AppSettings(
     val language: AppLanguage = AppLanguage.SYSTEM,
     val proxyMode: ProxyMode = ProxyMode.RULE,
     val blockAds: Boolean = false,
-    val tunStack: TunStack = TunStack.MIXED,
+    // gVisor is the only stack whose TCP path is fully userspace: the
+    // system/mixed stack's tun writeback listener fails silently on some
+    // OEM kernels (e.g. Xiaomi HyperOS) leaving TCP dead in the tunnel.
+    val tunStack: TunStack = TunStack.GVISOR,
     val mtu: Int = 9000,
     val sniffer: Boolean = true,
     val urlTestUrl: String = "https://www.gstatic.com/generate_204",
@@ -84,7 +87,7 @@ class SettingsRepository(
             language = enum(AppLanguage.SYSTEM, Keys.LANGUAGE),
             proxyMode = enum(ProxyMode.RULE, Keys.PROXY_MODE),
             blockAds = this[Keys.BLOCK_ADS] ?: false,
-            tunStack = enum(TunStack.MIXED, Keys.TUN_STACK),
+            tunStack = enum(TunStack.GVISOR, Keys.TUN_STACK),
             mtu = this[Keys.MTU] ?: 9000,
             sniffer = this[Keys.SNIFFER] ?: true,
             urlTestUrl = this[Keys.URL_TEST] ?: "https://www.gstatic.com/generate_204",

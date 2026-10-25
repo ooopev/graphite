@@ -67,26 +67,22 @@ class SingBoxConfigBuilderTest {
         val reality = tls["reality"]!!.jsonObject
         assertEquals("PBK", reality["public_key"]!!.jsonPrimitive.content)
         assertEquals("chrome", tls["utls"]!!.jsonObject["fingerprint"]!!.jsonPrimitive.content)
-        assertEquals("xudp", proxy["packet_encoding"]!!.jsonPrimitive.content)
     }
 
     @Test
-    fun `tun inbound reflects stack mtu strict route`() {
+    fun `tun inbound reflects stack and mtu`() {
         val cfg = build(profileOf(Protocol.TROJAN), AppSettings(mtu = 8888, tunStack = TunStack.SYSTEM))
         val tun = cfg["inbounds"]!!.jsonArray.first().jsonObject
         assertEquals("tun", tun["type"]!!.jsonPrimitive.content)
         assertEquals("system", tun["stack"]!!.jsonPrimitive.content)
         assertEquals(8888, tun["mtu"]!!.jsonPrimitive.content.toInt())
-        assertTrue(tun["strict_route"]!!.jsonPrimitive.content.toBoolean())
         assertTrue(tun["auto_route"]!!.jsonPrimitive.content.toBoolean())
     }
 
     @Test
-    fun `route rules include sniff and dns hijack`() {
-        val rules = build(profileOf(Protocol.TROJAN))["route"]!!.jsonObject["rules"]!!.jsonArray
-        val actions = rules.map { it.jsonObject["action"]?.jsonPrimitive?.content }
-        assertTrue("sniff" in actions)
-        assertTrue("hijack-dns" in actions)
+    fun `route rules are accepted by bundled libbox`() {
+        val rules = build(profileOf(Protocol.TROJAN), AppSettings(proxyMode = ProxyMode.GLOBAL))["route"]!!.jsonObject["rules"]!!.jsonArray
+        assertTrue(rules.isEmpty())
     }
 
     @Test

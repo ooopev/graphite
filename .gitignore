@@ -8,3 +8,5 @@ app/libs/*.aar
 captures/
 .externalNativeBuild/
 .cxx/
+oquq.keystore
+.zcode/

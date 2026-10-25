@@ -2,7 +2,7 @@ package com.oquq.app.vpn.engine
 
 import android.net.VpnService
 import android.os.ParcelFileDescriptor
-import oquqawg.Oquqawg
+import io.nekohasekai.oquqawg.Oquqawg
 
 /**
  * AmneziaWG engine (libawg.aar — gomobile bind of a thin wrapper around

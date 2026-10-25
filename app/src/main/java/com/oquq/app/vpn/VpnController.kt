@@ -2,6 +2,7 @@ package com.oquq.app.vpn
 
 import android.content.Context
 import android.content.Intent
+import android.net.VpnService
 import com.oquq.app.core.model.Profile
 import com.oquq.app.core.model.Protocol
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,6 +27,7 @@ data class VpnState(
  * else (UI, tile, boot receiver) reads the flow and sends commands.
  */
 object VpnController {
+    private var pendingProfileId: Long? = null
     private val _state = MutableStateFlow(VpnState())
     val state: StateFlow<VpnState> = _state.asStateFlow()
 
@@ -44,12 +46,27 @@ object VpnController {
         context: Context,
         profile: Profile,
     ) {
+        // Android revokes VPN consent after reinstall, app-data reset, or
+        // another VPN taking ownership. Request it before starting the
+        // foreground service; otherwise libbox only reports "VPN permission
+        // revoked or establish failed".
+        VpnService.prepare(context)?.let { prepareIntent ->
+            pendingProfileId = profile.id
+            context.startActivity(
+                Intent(context, com.oquq.app.MainActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                    .putExtra("request_vpn_permission", true),
+            )
+            return
+        }
         val intent =
             Intent(context, OquqVpnService::class.java)
                 .setAction(OquqVpnService.ACTION_CONNECT)
                 .putExtra(OquqVpnService.EXTRA_PROFILE_ID, profile.id)
         context.startForegroundService(intent)
     }
+
+    fun takePendingProfileId(): Long? = pendingProfileId.also { pendingProfileId = null }
 
     fun disconnect(context: Context) {
         context.startService(

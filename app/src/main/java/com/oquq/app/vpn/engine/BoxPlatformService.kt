@@ -71,11 +71,24 @@ class BoxPlatformService(
         val dns = mutableListOf<String>()
         val dnsIter = o.getDNSServerAddress()
         while (dnsIter?.hasNext() == true) dns += dnsIter.next()
-        if (dns.isEmpty()) dns += "172.19.0.1" // in-tunnel DNS placeholder
+        if (dns.isEmpty()) dns += "172.19.0.2" // derived fake DNS (tun addr + 1), hijacked by the core
         dns.forEach { builder.addDnsServer(it) }
 
-        return builder.establish()?.detachFd()
-            ?: throw IllegalStateException("VPN permission revoked or establish failed")
+        // Per-app routing from OverrideOptions must reach the system too:
+        // the core's own UID filtering is not enough for sockets created by
+        // other engines sharing this process (the Xray SOCKS hop).
+        val include = o.includePackage
+        while (include?.hasNext() == true) builder.addAllowedApplication(include.next())
+        val exclude = o.excludePackage
+        while (exclude?.hasNext() == true) builder.addDisallowedApplication(exclude.next())
+
+        val pfd = builder.establish() ?: throw IllegalStateException("VPN permission revoked or establish failed")
+        val fd = pfd.detachFd()
+        // libbox dups this fd and only ever closes the dup; the original is
+        // ours to close. While it stays open the kernel keeps the tun and
+        // Android keeps the VPN agent alive — "disconnected" but still on.
+        TunFdRegistry.register(fd)
+        return fd
     }
 
     override fun usePlatformAutoDetectInterfaceControl(): Boolean = true
@@ -99,6 +112,10 @@ class BoxPlatformService(
 
     override fun startDefaultInterfaceMonitor(listener: InterfaceUpdateListener?) {
         networkMonitor.listener = listener
+        // The core asks for the monitor only while (re)starting; without this
+        // immediate push it stays on "missing default interface" until the
+        // next connectivity event — dead air right after connect.
+        if (listener != null) networkMonitor.reportNow()
     }
 
     override fun closeDefaultInterfaceMonitor(listener: InterfaceUpdateListener?) {
@@ -129,7 +146,11 @@ class BoxPlatformService(
                     this.name = name
                     index = os.index
                     runCatching { setMTU(os.mtu) }
-                    setDNSServer(StringIteratorImpl(lp.dnsServers.mapNotNull { it.hostAddress }.orEmpty()))
+                    setDNSServer(
+                        StringIteratorImpl(
+                            lp.dnsServers.mapNotNull { it.hostAddress?.substringBefore('%') }.orEmpty(),
+                        ),
+                    )
                     type =
                         when {
                             caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> Libbox.InterfaceTypeWIFI
@@ -159,8 +180,12 @@ class BoxPlatformService(
 
     private fun InterfaceAddress.toPrefix(): String {
         val bits = if (address is Inet6Address) 128 else 32
-        // prefixLength counts contiguous bits; reconstruct CIDR from address+mask
-        return "${address.hostAddress}/${networkPrefixLength.toInt().coerceIn(0, bits)}"
+        // prefixLength counts contiguous bits; reconstruct CIDR from address+mask.
+        // Strip the IPv6 zone (%wlan0): libbox parses each entry with
+        // netip.MustParsePrefix, which panics — and kills the whole process —
+        // when the prefix carries a zone.
+        val host = address.hostAddress?.substringBefore('%') ?: return ""
+        return "$host/${networkPrefixLength.toInt().coerceIn(0, bits)}"
     }
 
     // ---- connection owner (process info for routing rules) ----

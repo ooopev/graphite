@@ -5,6 +5,7 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
+import android.os.Build
 import io.nekohasekai.libbox.InterfaceUpdateListener
 
 /**
@@ -31,32 +32,44 @@ class DefaultNetworkMonitor(
             ) = report()
         }
 
+    /** Pushes the current non-VPN default network to the core right away. */
+    fun reportNow() {
+        listener?.let { report() }
+    }
+
     private fun report() {
         val l = listener ?: return
         runCatching {
-            val network = cm.activeNetwork ?: return
+            // Never report the VPN itself as the default interface: once the
+            // tun is up, activeNetwork IS the VPN and the core would try to
+            // send its outbounds into its own tunnel ("no available network
+            // interface" on every connection).
+            val caps0 = cm.activeNetwork?.let { cm.getNetworkCapabilities(it) }
+            val network =
+                if (caps0 != null && !caps0.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) {
+                    cm.activeNetwork
+                } else {
+                    cm.allNetworks.firstOrNull { n ->
+                        cm.getNetworkCapabilities(n)?.let {
+                            it.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                                !it.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
+                        } == true
+                    }
+                } ?: return
             val caps = cm.getNetworkCapabilities(network) ?: return
-            val name = cm.getLinkProperties(network)?.interfaceName ?: return
-            val type =
-                when {
-                    caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> {
-                        io.nekohasekai.libbox.Libbox.InterfaceTypeWIFI
-                    }
-
-                    caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> {
-                        io.nekohasekai.libbox.Libbox.InterfaceTypeCellular
-                    }
-
-                    caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> {
-                        io.nekohasekai.libbox.Libbox.InterfaceTypeEthernet
-                    }
-
-                    else -> {
-                        io.nekohasekai.libbox.Libbox.InterfaceTypeOther
-                    }
-                }
+            val lp = cm.getLinkProperties(network) ?: return
+            val name = lp.interfaceName ?: return
+            // libbox expects the kernel interface index here — the same value
+            // getInterfaces() reports via java.net.NetworkInterface.getIndex(),
+            // which is what the core's InterfaceFinder matches against. The
+            // interface *type* is derived by the core itself.
+            val index =
+                runCatching { java.net.NetworkInterface.getByName(name)?.index }.getOrNull() ?: return
             val metered = !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
-            l.updateDefaultInterface(name, type, metered, true)
+            val constrained =
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                    !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_BANDWIDTH_CONSTRAINED)
+            l.updateDefaultInterface(name, index, metered, constrained)
         }
     }
 
@@ -65,6 +78,8 @@ class DefaultNetworkMonitor(
             NetworkRequest
                 .Builder()
                 .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                // VPN networks satisfy INTERNET too; we never want their events.
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
                 .build(),
             callback,
         )

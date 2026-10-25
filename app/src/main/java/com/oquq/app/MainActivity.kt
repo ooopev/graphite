@@ -3,6 +3,7 @@ package com.oquq.app
 import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.net.VpnService
 import android.content.res.Configuration
 import android.os.Build
 import android.os.LocaleList
@@ -35,6 +36,7 @@ import com.oquq.app.ui.settings.SettingsScreen
 import com.oquq.app.ui.subs.SubscriptionsScreen
 import com.oquq.app.ui.theme.OquqTheme
 import com.oquq.app.vpn.Notifications
+import com.oquq.app.vpn.VpnController
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -45,6 +47,21 @@ class MainActivity : ComponentActivity() {
 
     private val notifPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
+
+    private val vpnPermission =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == RESULT_OK) {
+                VpnController.takePendingProfileId()?.let { id ->
+                    lifecycleScope.launch {
+                        ProfileRepository.get(this@MainActivity).profileOnce(id)?.let {
+                            VpnController.connect(this@MainActivity, it)
+                        }
+                    }
+                }
+            } else {
+                VpnController.takePendingProfileId()
+            }
+        }
 
     override fun attachBaseContext(newBase: Context) {
         // Per-app locale without AppCompat: quick SharedPreferences mirror of the
@@ -70,6 +87,7 @@ class MainActivity : ComponentActivity() {
         }
 
         captureDeepLink(intent)
+        requestVpnPermissionIfNeeded(intent)
 
         val settingsRepo = SettingsRepository(this)
         lifecycleScope.launch {
@@ -105,6 +123,13 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         captureDeepLink(intent)
+        requestVpnPermissionIfNeeded(intent)
+    }
+
+    private fun requestVpnPermissionIfNeeded(intent: Intent?) {
+        if (intent?.getBooleanExtra("request_vpn_permission", false) == true) {
+            VpnService.prepare(this)?.let(vpnPermission::launch)
+        }
     }
 
     private fun captureDeepLink(intent: Intent?) {

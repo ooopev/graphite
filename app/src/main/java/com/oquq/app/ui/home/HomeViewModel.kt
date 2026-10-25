@@ -53,10 +53,20 @@ class HomeViewModel(
         viewModelScope.launch {
             vpnState.collect { s ->
                 val now = System.currentTimeMillis()
-                if (s.status == com.oquq.app.vpn.VpnStatus.CONNECTED && lastTick > 0 && now > lastTick) {
+                if (s.status == com.oquq.app.vpn.VpnStatus.CONNECTED && lastTick > 0) {
                     val dt = (now - lastTick) / 1000.0
-                    _speed.value =
-                        (((s.upBytes - lastUp) / dt).toLong()) to (((s.downBytes - lastDown) / dt).toLong())
+                    // Ignore emission bursts (multiple state writes within one
+                    // stats tick) — their tiny dt produces wild spikes.
+                    if (dt >= 0.2) {
+                        val du = s.upBytes - lastUp
+                        val dd = s.downBytes - lastDown
+                        // The core resets its cumulative counters on reload;
+                        // a negative delta means "counters restarted", not
+                        // negative traffic.
+                        _speed.value =
+                            (if (du > 0) (du / dt).toLong() else 0L) to
+                                (if (dd > 0) (dd / dt).toLong() else 0L)
+                    }
                 } else {
                     _speed.value = 0L to 0L
                 }

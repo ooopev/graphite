@@ -1,20 +1,20 @@
 package com.oquq.app.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -22,13 +22,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.oquq.app.ui.theme.Black
 import com.oquq.app.ui.theme.Bone
+import com.oquq.app.ui.theme.BorderStrong
+import com.oquq.app.ui.theme.OutlineDark
 import com.oquq.app.ui.theme.Smoke
 import com.oquq.app.ui.theme.Surface02
-import com.oquq.app.ui.theme.Surface04
+import com.oquq.app.ui.theme.TextSecondary
 
-/** Minimal 1dp-bordered section card — no elevation, no noise. */
+/** omarchy-style section card: square corners, 1px hairline, no elevation. */
 @Composable
 fun SectionCard(
     modifier: Modifier = Modifier,
@@ -36,12 +39,50 @@ fun SectionCard(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        shape = MaterialTheme.shapes.medium, // 0dp — squared
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        border = BorderStroke(1.dp, OutlineDark),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(Modifier.padding(vertical = 6.dp)) { content() }
+    }
+}
+
+/** Square toggle — the omarchy answer to round Material switches. */
+@Composable
+fun SquareSwitch(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    androidx.compose.material3.Surface(
+        onClick = { onCheckedChange(!checked) },
+        shape = MaterialTheme.shapes.small,
+        color = if (checked) Bone else Surface02,
+        border =
+            BorderStroke(
+                1.dp,
+                if (checked) Bone else BorderStrong,
+            ),
+        modifier = modifier.size(width = 52.dp, height = 28.dp),
+    ) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .padding(3.dp),
+            contentAlignment =
+                if (checked) {
+                    Alignment.CenterEnd
+                } else {
+                    Alignment.CenterStart
+                },
+        ) {
+            Box(
+                Modifier
+                    .size(20.dp)
+                    .background(if (checked) Black else Smoke),
+            )
+        }
     }
 }
 
@@ -66,24 +107,13 @@ fun SwitchRow(
                 Text(
                     description,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = TextSecondary,
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
         }
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            colors =
-                SwitchDefaults.colors(
-                    checkedThumbColor = Black,
-                    checkedTrackColor = Bone,
-                    uncheckedThumbColor = Smoke,
-                    uncheckedTrackColor = Surface04,
-                    uncheckedBorderColor = Color.Transparent,
-                ),
-        )
+        SquareSwitch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 
@@ -108,7 +138,7 @@ fun ClickRow(
                 androidx.compose.material3.Icon(
                     icon,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = TextSecondary,
                     modifier = Modifier.padding(end = 16.dp).size(22.dp),
                 )
             }
@@ -118,7 +148,7 @@ fun ClickRow(
                     Text(
                         description,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = TextSecondary,
                     )
                 }
             }
@@ -126,7 +156,7 @@ fun ClickRow(
     }
 }
 
-/** Flat monochrome text field. */
+/** Flat monochrome square text field. */
 @Composable
 fun OquqTextField(
     value: String,
@@ -147,7 +177,7 @@ fun OquqTextField(
         minLines = minLines,
         trailingIcon = trailing,
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
+        shape = MaterialTheme.shapes.small, // 0dp — squared
         colors =
             OutlinedTextFieldDefaults.colors(
                 focusedTextColor = Bone,
@@ -155,7 +185,7 @@ fun OquqTextField(
                 focusedContainerColor = Surface02,
                 unfocusedContainerColor = Surface02,
                 focusedBorderColor = Bone,
-                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                unfocusedBorderColor = OutlineDark,
                 focusedLabelColor = Bone,
                 unfocusedLabelColor = Smoke,
                 cursorColor = Bone,
@@ -163,15 +193,17 @@ fun OquqTextField(
     )
 }
 
+/** Section label — JetBrains Mono, uppercase, muted: omarchy's eyebrow. */
 @Composable
 fun Label(
     text: String,
     modifier: Modifier = Modifier,
 ) {
     Text(
-        text,
+        text.uppercase(),
         style = MaterialTheme.typography.labelMedium,
         color = Smoke,
-        modifier = modifier.padding(start = 22.dp, top = 18.dp, bottom = 6.dp),
+        letterSpacing = 1.5.sp,
+        modifier = modifier.padding(start = 4.dp, top = 18.dp, bottom = 8.dp),
     )
 }

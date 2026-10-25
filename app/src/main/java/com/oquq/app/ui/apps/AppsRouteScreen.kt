@@ -182,7 +182,7 @@ private fun AppRow(
 ) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = RoundedCornerShape(14.dp),
+        shape = MaterialTheme.shapes.small, // squared
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier =
             Modifier

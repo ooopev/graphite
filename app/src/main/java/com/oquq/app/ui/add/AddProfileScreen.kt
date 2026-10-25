@@ -67,9 +67,20 @@ class AddProfileViewModel(
     val lastImport = MutableStateFlow<Int?>(null)
     val busy = MutableStateFlow(false)
 
-    fun importLinks(text: String) {
+    fun importLinks(
+        text: String,
+        onDone: () -> Unit = {},
+    ) {
         viewModelScope.launch {
             busy.value = true
+            val candidate = text.trim()
+            // A pasted subscription URL is not a single proxy link. Accept it
+            // from the Link tab too, so the clipboard button behaves the same
+            // as the Subscription tab.
+            if (candidate.startsWith("https://", true) || candidate.startsWith("http://", true)) {
+                addSubscription("", candidate, onDone)
+                return@launch
+            }
             val parsed =
                 text
                     .lineSequence()
@@ -198,12 +209,12 @@ fun AddProfileScreen(
 
     // Deep-link import (vless://… opened from browser/messenger)
     LaunchedEffect(initialLink) {
-        if (!initialLink.isNullOrBlank()) vm.importLinks(initialLink)
+        if (!initialLink.isNullOrBlank()) vm.importLinks(initialLink) { onBack() }
     }
 
     val scanLauncher =
         rememberLauncherForActivityResult(ScanContract()) { result ->
-            result.contents?.let { vm.importLinks(it) }
+            result.contents?.let { vm.importLinks(it) { onBack() } }
         }
     val cameraPermission =
         rememberLauncherForActivityResult(
@@ -298,15 +309,21 @@ fun AddProfileScreen(
                                 ?.toString() ?: link
                         }
                         Spacer(Modifier.width(6.dp))
-                        ActionButton(stringResource(R.string.add), busy) { vm.importLinks(link) }
+                        ActionButton(stringResource(R.string.add), busy) { vm.importLinks(link) { onBack() } }
                     }
                 }
 
                 1 -> {
                     OquqTextField(subName, { subName = it }, stringResource(R.string.field_sub_name))
                     OquqTextField(subUrl, { subUrl = it }, stringResource(R.string.field_sub_url))
-                    ActionButton(stringResource(R.string.add), busy) {
-                        vm.addSubscription(subName, subUrl) { onBack() }
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        OutlinedButtonCompact(stringResource(R.string.paste_from_clipboard)) {
+                            val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            subUrl = cm.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString()?.trim().orEmpty().ifBlank { subUrl }
+                        }
+                        ActionButton(stringResource(R.string.add), busy) {
+                            vm.addSubscription(subName, subUrl) { onBack() }
+                        }
                     }
                 }
 

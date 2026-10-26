@@ -85,6 +85,7 @@ fun HomeScreen(
     var menuProfile by remember { mutableStateOf<Profile?>(null) }
     var renameTarget by remember { mutableStateOf<Profile?>(null) }
     var editTarget by remember { mutableStateOf<Profile?>(null) }
+    var detailsTarget by remember { mutableStateOf<Profile?>(null) }
     var deleteTarget by remember { mutableStateOf<Profile?>(null) }
     var menuOpen by remember { mutableStateOf(false) }
 
@@ -278,6 +279,13 @@ fun HomeScreen(
         val dismiss = { menuProfile = null }
         DropdownMenu(expanded = true, onDismissRequest = dismiss) {
             DropdownMenuItem(
+                text = { Text(stringResource(R.string.server_details)) },
+                onClick = {
+                    detailsTarget = p
+                    dismiss()
+                },
+            )
+            DropdownMenuItem(
                 text = { Text(stringResource(R.string.test)) },
                 onClick = {
                     vm.test(p)
@@ -320,6 +328,30 @@ fun HomeScreen(
                 },
             )
         }
+    }
+
+    detailsTarget?.let { p ->
+        AlertDialog(
+            onDismissRequest = { detailsTarget = null },
+            title = { Text(p.name) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("${stringResource(R.string.field_server)}: ${p.server}")
+                    Text("${stringResource(R.string.field_port)}: ${p.port}")
+                    Text("${stringResource(R.string.protocol)}: ${p.protocol.name}")
+                    Text(
+                        "${stringResource(R.string.field_link)}: ${p.rawLink}",
+                        maxLines = 5,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { detailsTarget = null }) {
+                    Text(stringResource(R.string.close))
+                }
+            },
+        )
     }
 
     renameTarget?.let { p ->
@@ -448,13 +480,6 @@ private fun ServerSquare(
                         .align(Alignment.BottomStart)
                         .padding(14.dp),
                 ) {
-                    Text(
-                        "${profile.server}:${profile.port}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (isLive) Bone else Smoke,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
                     Text(
                         profile.protocol.name,
                         style = MaterialTheme.typography.labelSmall,

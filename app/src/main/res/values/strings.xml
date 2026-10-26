@@ -31,6 +31,8 @@
     <string name="latency_testing">…</string>
     <string name="test_all">Test all</string>
     <string name="test">Test</string>
+    <string name="server_details">Details</string>
+    <string name="protocol">Protocol</string>
     <string name="speed_format">%1$s ▲  %2$s ▼</string>
     <string name="connected_to">Connected to %1$s</string>
     <string name="press_to_connect">Tap to connect</string>

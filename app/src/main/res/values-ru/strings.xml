@@ -27,6 +27,8 @@
     <string name="latency_testing">…</string>
     <string name="test_all">Тест всех</string>
     <string name="test">Тест</string>
+    <string name="server_details">Подробнее</string>
+    <string name="protocol">Протокол</string>
     <string name="speed_format">%1$s ▲  %2$s ▼</string>
     <string name="connected_to">Подключено к %1$s</string>
     <string name="press_to_connect">Нажмите для подключения</string>

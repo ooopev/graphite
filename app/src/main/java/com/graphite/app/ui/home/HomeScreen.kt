@@ -102,7 +102,7 @@ fun HomeScreen(
                     .padding(horizontal = 20.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-            OmarchySpiral(color = Bone, sizeDp = 26.dp)
+            OmarchySpiral(color = Bone, sizeDp = 26.dp, arms = 1)
             Spacer(Modifier.width(10.dp))
             Text(
                 stringResource(R.string.app_name),
@@ -439,7 +439,7 @@ private fun ServerSquare(
                 if (isLive) {
                     BoilingPixels(
                         modifier = Modifier.fillMaxSize(),
-                        slotCount = 26,
+                        slotCount = 72,
                         durationMs = 800,
                     )
                 }

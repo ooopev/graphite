@@ -10,7 +10,9 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -29,9 +31,11 @@ import com.graphite.app.ui.theme.Surface03
 import com.graphite.app.vpn.VpnStatus
 
 /**
- * The power square: the omarchy spiral, finished and still. Tap it and
- * pixels start chasing through the labyrinth; connected inverts it —
- * white square, black spiral, gray bubbles running along the rings.
+ * The power square: a pixel vortex leaning into its core. Tap it and the
+ * coil starts to breathe — comets chase rim → core while the whole spiral
+ * slowly turns; connected locks it steady with a data stream running
+ * through, a breathing nucleus, and a one-shot shockwave the moment the
+ * tunnel comes up.
  */
 @Composable
 fun PowerButton(
@@ -49,6 +53,12 @@ fun PowerButton(
 
     val connected = status == VpnStatus.CONNECTED
     val connecting = status == VpnStatus.CONNECTING
+    // Ignition counter: ticks up once every time the tunnel comes up —
+    // fires the one-shot shockwave + core flash inside the vortex.
+    var ignitionNo by remember { mutableIntStateOf(0) }
+    LaunchedEffect(connected) {
+        if (connected) ignitionNo++
+    }
     // Always the same black square; only the spiral changes.
     val squareColor = Surface03
     val frameColor = when {
@@ -93,8 +103,15 @@ fun PowerButton(
             color = spiralBase,
             sizeDp = (sizeDp * 0.70).dp,
             flow = connecting || connected,
+            flowDurationMs = if (connecting) 900 else 1600,
+            spinDurationMs = when {
+                connecting -> 9000
+                connected -> 60000
+                else -> 0
+            },
+            corePulse = connected,
+            ignitionNo = ignitionNo,
             flowPalette = bubblePalette,
-            flowDurationMs = if (connecting) 900 else 700,
             modifier =
                 Modifier.graphicsLayer {
                     alpha = if (status == VpnStatus.DISCONNECTING) 0.4f else 1f

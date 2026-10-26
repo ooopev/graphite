@@ -7,15 +7,15 @@ plugins {
 }
 
 android {
-    namespace = "com.oquq.app"
+    namespace = "com.graphite.app"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.oquq.app"
+        applicationId = "com.graphite.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 100
+        versionName = "1.0"
         resourceConfigurations += listOf("en", "ru")
     }
 
@@ -29,12 +29,17 @@ android {
 
     signingConfigs {
         create("release") {
-            val ks = rootProject.file("oquq.keystore")
-            if (ks.exists()) {
+            val keystorePath = providers.environmentVariable("GRAPHITE_KEYSTORE")
+                .orElse("graphite.keystore").get()
+            val ks = rootProject.file(keystorePath)
+            val storePass = providers.environmentVariable("GRAPHITE_KEYSTORE_PASSWORD").orNull
+            val alias = providers.environmentVariable("GRAPHITE_KEY_ALIAS").orNull
+            val keyPass = providers.environmentVariable("GRAPHITE_KEY_PASSWORD").orNull
+            if (ks.exists() && storePass != null && alias != null && keyPass != null) {
                 storeFile = ks
-                storePassword = "oquq2026"
-                keyAlias = "oquq"
-                keyPassword = "oquq2026"
+                storePassword = storePass
+                keyAlias = alias
+                keyPassword = keyPass
             }
         }
     }

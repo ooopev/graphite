@@ -3,7 +3,7 @@
 // (tunnel/tools/libwg-go/api-android.go) but as a pure-Go gomobile package.
 //
 // gomobile bind generates class go.oquqawg.Oquqawg consumed by
-// com.oquq.app.vpn.engine.AwgEngine.
+// com.graphite.app.vpn.engine.AwgEngine.
 //
 // Socket protection note: VpnService.protect(fd) is sticky on the fd, so the
 // Kotlin side polls WgGetSocketV4/V6 and protects; no Set call is needed
@@ -31,7 +31,7 @@ type tunnelHandle struct {
 
 var (
 	handles  = map[int32]tunnelHandle{}
-	logSink  = log.New(os.Stderr, "[oQuQ/AWG] ", 0)
+	logSink  = log.New(os.Stderr, "[Graphite/AWG] ", 0)
 )
 
 // WgTurnOn starts a userspace tunnel on the provided TUN fd.

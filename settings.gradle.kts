@@ -20,5 +20,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "oQuQ"
+rootProject.name = "Graphite"
 include(":app")

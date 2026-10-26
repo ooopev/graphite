@@ -131,7 +131,7 @@
     <string name="notif_channel_vpn_desc">Состояние подключения и скорость</string>
     <string name="notif_connecting">Подключение…</string>
     <string name="notif_stop">Остановить</string>
-    <string name="tile_label">oQuQ VPN</string>
+    <string name="tile_label">Graphite VPN</string>
 
     <string name="err_no_profile">Сервер не выбран</string>
     <string name="err_vpn_permission">Доступ к VPN запрещён</string>

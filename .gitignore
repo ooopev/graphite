@@ -1,13 +1,43 @@
-*.iml
+# Gradle / Android
 .gradle/
-local.properties
-.idea/
-.DS_Store
 build/
-app/libs/*.aar
-captures/
+app/build/
+local.properties
+*.iml
+.idea/
+.kotlin/
 .externalNativeBuild/
 .cxx/
-oquq.keystore
+captures/
+
+# Generated and downloaded native cores
+app/libs/
+*.aar
+*.so
+
+# Signing material and local secrets
+*.keystore
+*.jks
+*.p12
+*.pfx
+keystore.properties
+.env
+.env.*
+!.env.example
+
+# Build outputs and reports
+*.apk
+*.aab
+*.apks
+*.mapping.txt
+*.hprof
+app/reports/
+app/outputs/
+
+# IDE / OS
+.DS_Store
+Thumbs.db
+
+# Local tooling
 .zcode/
-/oQuQ-v*.apk
+.zwork/

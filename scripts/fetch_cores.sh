@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# oQuQ core fetcher — builds/obtains the three engine AARs into app/libs/.
+# Graphite core fetcher — builds/obtains the three engine AARs into app/libs/.
 #
 # This is the EXACT procedure verified working on this machine:
 #   libbox.aar  — built from sing-box source via its internal builder
@@ -21,7 +21,14 @@ trap 'rm -rf "$WORK"' EXIT
 mkdir -p "$LIBS"
 
 SINGBOX_VERSION="${SINGBOX_VERSION:-1.14.4}"
-: "${ANDROID_NDK_HOME:?ANDROID_NDK_HOME must point at your NDK}"
+if [[ -z "${ANDROID_NDK_HOME:-}" ]]; then
+    sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+    if [[ -n "$sdk_root" && -d "$sdk_root/ndk" ]]; then
+        ANDROID_NDK_HOME="$(find "$sdk_root/ndk" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+    fi
+fi
+: "${ANDROID_NDK_HOME:?ANDROID_NDK_HOME must point at your NDK (for example: \$ANDROID_SDK_ROOT/ndk/28.2.13676358)}"
+export ANDROID_NDK_HOME
 export PATH="$HOME/go/bin:$PATH"
 
 command -v go >/dev/null || { echo "!! Go 1.24+ required"; exit 1; }

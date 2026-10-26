@@ -1,4 +1,4 @@
-# oQuQ detekt configuration — tuned, not silenced.
+# Graphite detekt configuration — tuned, not silenced.
 build:
   maxIssues: 0
 

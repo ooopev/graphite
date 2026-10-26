@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name" translatable="false">oQuQ</string>
+    <string name="app_name" translatable="false">graphite</string>
 
     <!-- Common -->
     <string name="ok">OK</string>
@@ -145,7 +145,7 @@
     <string name="notif_channel_vpn_desc">Active connection status and speed</string>
     <string name="notif_connecting">Connecting…</string>
     <string name="notif_stop">Stop</string>
-    <string name="tile_label">oQuQ VPN</string>
+    <string name="tile_label">Graphite VPN</string>
 
     <!-- Errors -->
     <string name="err_no_profile">No server selected</string>

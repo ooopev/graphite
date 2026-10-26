@@ -17,7 +17,7 @@
         tools:ignore="QueryAllPackagesPermission" />
 
     <application
-        android:name=".OquqApp"
+        android:name=".GraphiteApp"
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
@@ -25,14 +25,14 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:enableOnBackInvokedCallback="true"
-        android:theme="@style/Theme.Oquq">
+        android:theme="@style/Theme.Graphite">
 
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTask"
             android:windowSoftInputMode="adjustResize"
-            android:theme="@style/Theme.Oquq.Splash"
+            android:theme="@style/Theme.Graphite.Splash"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -52,12 +52,12 @@
                 <data android:scheme="tuic" />
                 <data android:scheme="socks" />
                 <data android:scheme="vpn" />
-                <data android:scheme="oquq" />
+                <data android:scheme="graphite" />
             </intent-filter>
         </activity>
 
         <service
-            android:name=".vpn.OquqVpnService"
+            android:name=".vpn.GraphiteVpnService"
             android:exported="false"
             android:permission="android.permission.BIND_VPN_SERVICE"
             android:foregroundServiceType="specialUse">
@@ -67,7 +67,7 @@
         </service>
 
         <service
-            android:name=".vpn.OquqTileService"
+            android:name=".vpn.GraphiteTileService"
             android:exported="true"
             android:icon="@drawable/ic_stat_vpn"
             android:label="@string/app_name"

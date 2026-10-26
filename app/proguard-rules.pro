@@ -1,4 +1,4 @@
-# oQuQ R8 rules
+# Graphite R8 rules
 
 # --- gomobile bound cores (go.Seq is used reflectively) ---
 -dontwarn go.**
@@ -13,7 +13,7 @@
 -keepattributes *Annotation*, InnerClasses
 -dontnote kotlinx.serialization.**
 -keepclassmembers class kotlinx.serialization.json.** { *** Companion; }
--keepclasseswithmembers class com.oquq.app.** { kotlinx.serialization.KSerializer serializer(...); }
+-keepclasseswithmembers class com.graphite.app.** { kotlinx.serialization.KSerializer serializer(...); }
 
 # Room
 -keep class * extends androidx.room.RoomDatabase { <init>(); }
